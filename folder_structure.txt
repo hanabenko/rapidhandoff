@@ -1,7 +1,18 @@
-backend/: cloud Run API, agent tools, MCP layer
-frontend/: receptionist UI, staff dashboard, waiting room
-seed/: MongoDB seed scripts
-docs/: architecture diagram
-.env.example
-README.md
-LICENSE
+rapidhandoff/
+- backend/: cloud Run API, agent tools, MCP layer
+   - src/
+       - agents/
+       - mcp/
+       - db/
+       - server.ts
+- frontend/: receptionist UI, staff dashboard, waiting room
+   - src/
+- seed/: MongoDB seed scripts
+   - seed.ts
+- docs/: architecture diagram
+- package.json
+- pnpm-lock.yaml
+- test.ts
+- .env
+- README.md
+- LICENSE

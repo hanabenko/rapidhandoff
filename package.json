@@ -11,10 +11,13 @@
     "license": "ISC",
     "packageManager": "pnpm@10.33.0",
     "dependencies": {
+        "@arizeai/phoenix-client": "^6.10.0",
+        "@arizeai/phoenix-otel": "^1.0.2",
         "dotenv": "^17.4.2",
         "mongodb": "^7.2.0"
     },
     "devDependencies": {
+        "@arizeai/phoenix-mcp": "^4.0.13",
         "@types/node": "^25.9.1"
     },
     "type": "module"

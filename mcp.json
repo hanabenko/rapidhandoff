@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "phoenix": {
+            "command": "npx",
+            "args": ["-y", "@arizeai/phoenix-mcp@latest"],
+            "env": {
+                "PHOENIX_HOST": "${PHOENIX_HOST}",
+                "PHOENIX_API_KEY": "${PHOENIX_API_KEY}",
+                "PHOENIX_PROJECT": "GC-Rapid-Agent-Hackathon"
+            }
+        }
+    }
+}
