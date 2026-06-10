@@ -22,7 +22,8 @@ export interface TriageDecision {
 
 export interface BedAssignment {
     patientId: string;
-    selectedBedId: string;
+    assignmentStatus: "assigned" | "waitlisted";
+    selectedBedId: string | null;
     selectedBedType: string;
     rationale: string;
     estimatedWaitMinutes: number;
@@ -30,6 +31,7 @@ export interface BedAssignment {
 
 export interface StaffAssignment {
     patientId: string;
+    assignmentStatus: "assigned" | "deferred";
     assignedStaffIds: string[];
     assignedRoles: string[];
     alertMessage: string;
@@ -43,7 +45,7 @@ export interface ReportingSummary {
         patientId: string;
         triageSeverity: string;
         routingPriority: string;
-        bedId: string;
+        bedId: string | null;
         assignedStaffIds: string[];
         estimatedWaitMinutes: number;
     };

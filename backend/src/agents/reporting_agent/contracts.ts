@@ -14,8 +14,8 @@ export const dashboardStatusSchema = z.object({
         "standard_bed",
         "fast_track",
     ]),
-    bedId: z.string().min(1),
-    assignedStaffIds: z.array(z.string().min(1)).min(1).max(5),
+    bedId: z.string().min(1).nullable(),
+    assignedStaffIds: z.array(z.string().min(1)).max(5),
     estimatedWaitMinutes: z.number().int().min(0).max(1440),
 });
 

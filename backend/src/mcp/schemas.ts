@@ -15,9 +15,11 @@ export const getAvailableBedsInputSchema = z.object({
 });
 
 export const patientVitalsSchema = z.object({
-    heartRate: z.number().int().positive().optional(),
-    systolicBP: z.number().int().positive().optional(),
-    diastolicBP: z.number().int().positive().optional(),
+    // Vertex tool declarations reject the exclusiveMinimum produced by
+    // positive(); min(1) preserves the intended integer validation.
+    heartRate: z.number().int().min(1).optional(),
+    systolicBP: z.number().int().min(1).optional(),
+    diastolicBP: z.number().int().min(1).optional(),
     oxygenSat: z.number().min(0).max(100).optional(),
     temperatureF: z.number().optional(),
 });

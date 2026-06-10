@@ -27,11 +27,17 @@ const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
 
 export function createRootOrchestratorAgent(options: {
     beforeModelCallback?: BeforeModelCallback;
+    includeDelegationTools?: boolean;
 } = {}) {
-    const triageChild = createTriageAgent();
-    const bedChild = createBedManagementAgent();
-    const staffChild = createStaffCoordinationAgent();
-    const reportingChild = createReportingAgent();
+    const includeDelegationTools = options.includeDelegationTools ?? true;
+    const children = includeDelegationTools
+        ? [
+              createTriageAgent(),
+              createBedManagementAgent(),
+              createStaffCoordinationAgent(),
+              createReportingAgent(),
+          ]
+        : [];
 
     return new LlmAgent({
         name: "er_operations_orchestrator",
@@ -50,18 +56,16 @@ Do not redo the sub-agent reasoning. Summarize the delegated results clearly.`,
         outputSchema: rootOrchestratorAgentOutputSchema,
         disallowTransferToParent: true,
         disallowTransferToPeers: true,
-        subAgents: [triageChild, bedChild, staffChild, reportingChild],
-        tools: [
-            new AgentTool({ agent: triageChild }),
-            new AgentTool({ agent: bedChild }),
-            new AgentTool({ agent: staffChild }),
-            new AgentTool({ agent: reportingChild }),
-        ],
+        subAgents: children,
+        tools: children.map((agent) => new AgentTool({ agent })),
         beforeModelCallback: options.beforeModelCallback,
     });
 }
 
 export const rootAgent = createRootOrchestratorAgent();
+export const rootSynthesisAgent = createRootOrchestratorAgent({
+    includeDelegationTools: false,
+});
 
 export {
     bedManagementAgent,

@@ -24,7 +24,9 @@ already available according to ER data. Choose the best bed, estimate wait
 time, and explain the operational reasoning.
 
 Return JSON that matches the schema exactly.
-Prefer the most operationally appropriate available bed. Do not invent beds.`,
+Prefer the most operationally appropriate available bed. Do not invent beds.
+When candidateBeds is empty, return assignmentStatus "waitlisted",
+selectedBedId null, and a reasonable non-zero wait estimate.`,
         inputSchema: bedManagementAgentInputSchema,
         outputSchema: bedManagementAgentOutputSchema,
         disallowTransferToParent: true,

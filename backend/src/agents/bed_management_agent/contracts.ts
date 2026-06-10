@@ -28,7 +28,8 @@ export const bedManagementAgentInputSchema = z.object({
 
 export const bedManagementAgentOutputSchema = z.object({
     patientId: z.string().min(1),
-    selectedBedId: z.string().min(1),
+    assignmentStatus: z.enum(["assigned", "waitlisted"]).default("assigned"),
+    selectedBedId: z.string().min(1).nullable(),
     selectedBedType: bedTypeSchema,
     rationale: z.string().min(1).max(1000),
     estimatedWaitMinutes: z.number().int().min(0).max(1440),

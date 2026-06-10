@@ -12,7 +12,7 @@ import {
     buildStaffingRecommendation,
 } from "./analytics.js";
 import {
-    rootAgent,
+    rootSynthesisAgent,
 } from "./agent.js";
 import {
     rootOrchestratorAgentInputSchema,
@@ -300,7 +300,7 @@ export async function runDelegatedErWorkflow(
         bed: dependencies.agents?.bed?.agent ?? bedManagementAgent,
         staff: dependencies.agents?.staff?.agent ?? staffCoordinationAgent,
         reporting: dependencies.agents?.reporting?.agent ?? reportingAgent,
-        root: dependencies.agents?.root?.agent ?? rootAgent,
+        root: dependencies.agents?.root?.agent ?? rootSynthesisAgent,
     };
     const delegations: DelegationLog[] = [];
     const toolCalls: DelegatedWorkflowResult["toolCalls"] = [];
@@ -400,94 +400,138 @@ export async function runDelegatedErWorkflow(
                 BedManagementAgentInput,
                 BedManagementAgentOutput
             >("bed_management", agents.bed, userId, bedInput);
+
+            if (availableBeds.length === 0) {
+                bed.output = {
+                    ...bed.output,
+                    assignmentStatus: "waitlisted",
+                    selectedBedId: null,
+                    selectedBedType: bedInput.recommendedBedType,
+                    estimatedWaitMinutes: Math.max(
+                        bed.output.estimatedWaitMinutes,
+                        15,
+                    ),
+                    rationale:
+                        "No eligible bed is currently available. Patient remains queued for the next appropriate bed.",
+                };
+                bed.log.output = asObject(bed.output) ?? {};
+            }
             delegations.push(bed.log);
 
             const selectedBed = availableBeds.find(
                 (candidate) => candidate.bedId === bed.output.selectedBedId,
             );
-            if (!selectedBed) {
+            if (availableBeds.length > 0 && !selectedBed) {
                 throw new Error(
                     `Bed agent selected unavailable bed ${bed.output.selectedBedId}.`,
                 );
             }
 
-            const bedAssignmentInput = {
-                patientId: workflowContext.patientId,
-                bedId: bed.output.selectedBedId,
-                assignedByStaffId: workflowContext.assignedByStaffId,
-                expectedBedVersion: selectedBed.version,
+            let staff: {
+                output: StaffCoordinationAgentOutput;
+                log: DelegationLog;
             };
-            const bedAssignmentResult = await withWorkflowSpan(
-                workflowSpanNames.bedAssignment,
-                buildBedAssignmentTraceAttributes(bedAssignmentInput),
-                async () =>
-                    repository.assignPatientToBed(bedAssignmentInput),
-            );
-            toolCalls.push({
-                name: "assign_patient_to_bed",
-                args: bedAssignmentInput,
-            });
-            toolResponses.push({
-                name: "assign_patient_to_bed",
-                response: bedAssignmentResult,
-            });
+            if (selectedBed && bed.output.selectedBedId) {
+                const bedAssignmentInput = {
+                    patientId: workflowContext.patientId,
+                    bedId: bed.output.selectedBedId,
+                    assignedByStaffId: workflowContext.assignedByStaffId,
+                    expectedBedVersion: selectedBed.version,
+                };
+                const bedAssignmentResult = await withWorkflowSpan(
+                    workflowSpanNames.bedAssignment,
+                    buildBedAssignmentTraceAttributes(bedAssignmentInput),
+                    async () =>
+                        repository.assignPatientToBed(bedAssignmentInput),
+                );
+                toolCalls.push({
+                    name: "assign_patient_to_bed",
+                    args: bedAssignmentInput,
+                });
+                toolResponses.push({
+                    name: "assign_patient_to_bed",
+                    response: bedAssignmentResult,
+                });
 
-            const availableStaff = await repository.getAvailableStaff({
-                roles: candidateRoles(triage.output.severity),
-                shift: workflowContext.preferredShift,
-                limit: 10,
-            });
-            toolCalls.push({
-                name: "get_available_staff",
-                args: {
+                const availableStaff = await repository.getAvailableStaff({
                     roles: candidateRoles(triage.output.severity),
                     shift: workflowContext.preferredShift,
                     limit: 10,
-                },
-            });
-            toolResponses.push({
-                name: "get_available_staff",
-                response: availableStaff,
-            });
+                });
+                toolCalls.push({
+                    name: "get_available_staff",
+                    args: {
+                        roles: candidateRoles(triage.output.severity),
+                        shift: workflowContext.preferredShift,
+                        limit: 10,
+                    },
+                });
+                toolResponses.push({
+                    name: "get_available_staff",
+                    response: availableStaff,
+                });
 
-            const staffInput: StaffCoordinationAgentInput = {
-                patientId: workflowContext.patientId,
-                severity: triage.output.severity,
-                urgency: triage.output.urgency,
-                routingPriority: triage.output.routingPriority,
-                assignedBedId: bed.output.selectedBedId,
-                candidateStaff: availableStaff.map((staff) => ({
-                    staffId: staff.staffId,
-                    role: staff.role,
-                    shift: staff.shift,
-                    available: staff.available,
-                })),
-                preferredShift: workflowContext.preferredShift,
-            };
-            const staff = await runDelegation<
-                StaffCoordinationAgentInput,
-                StaffCoordinationAgentOutput
-            >("staff_coordination", agents.staff, userId, staffInput);
-            delegations.push(staff.log);
+                const staffInput: StaffCoordinationAgentInput = {
+                    patientId: workflowContext.patientId,
+                    severity: triage.output.severity,
+                    urgency: triage.output.urgency,
+                    routingPriority: triage.output.routingPriority,
+                    assignedBedId: bed.output.selectedBedId,
+                    candidateStaff: availableStaff.map((member) => ({
+                        staffId: member.staffId,
+                        role: member.role,
+                        shift: member.shift,
+                        available: member.available,
+                    })),
+                    preferredShift: workflowContext.preferredShift,
+                };
+                staff = await runDelegation<
+                    StaffCoordinationAgentInput,
+                    StaffCoordinationAgentOutput
+                >("staff_coordination", agents.staff, userId, staffInput);
+                delegations.push(staff.log);
 
-            const staffAssignmentInput = {
-                patientId: workflowContext.patientId,
-                staffIds: staff.output.assignedStaffIds,
-            };
-            const staffAssignmentResult = await withWorkflowSpan(
-                workflowSpanNames.staffAssignment,
-                buildStaffAssignmentTraceAttributes(staffAssignmentInput),
-                async () =>
-                    repository.assignStaffToPatient(staffAssignmentInput),
-            );
-            toolCalls.push({
-                name: "assign_staff_to_patient",
-                args: staffAssignmentInput,
-            });
-            toolResponses.push({
-                name: "assign_staff_to_patient",
-                response: staffAssignmentResult,
-            });
+                const staffAssignmentInput = {
+                    patientId: workflowContext.patientId,
+                    staffIds: staff.output.assignedStaffIds,
+                };
+                const staffAssignmentResult = await withWorkflowSpan(
+                    workflowSpanNames.staffAssignment,
+                    buildStaffAssignmentTraceAttributes(staffAssignmentInput),
+                    async () =>
+                        repository.assignStaffToPatient(staffAssignmentInput),
+                );
+                toolCalls.push({
+                    name: "assign_staff_to_patient",
+                    args: staffAssignmentInput,
+                });
+                toolResponses.push({
+                    name: "assign_staff_to_patient",
+                    response: staffAssignmentResult,
+                });
+            } else {
+                const deferredStaff: StaffCoordinationAgentOutput = {
+                    patientId: workflowContext.patientId,
+                    assignmentStatus: "deferred",
+                    assignedStaffIds: [],
+                    assignedRoles: [],
+                    alertMessage:
+                        "Staff assignment deferred until an eligible bed becomes available.",
+                    rationale:
+                        "Avoid reserving treatment staff while the patient remains in the bed queue.",
+                };
+                staff = {
+                    output: deferredStaff,
+                    log: {
+                        agent: agents.staff.name,
+                        input: {
+                            patientId: workflowContext.patientId,
+                            reason: "bed_waitlist",
+                        },
+                        output: deferredStaff,
+                    },
+                };
+            }
 
             const snapshot = await repository.loadSnapshot();
             const reportingInput: ReportingAgentInput = {

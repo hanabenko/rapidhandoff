@@ -350,3 +350,103 @@ test("delegated workflow surfaces ADK model errors from sub-agents", async () =>
         /triage_agent model request failed: Could not load the default credentials/,
     );
 });
+
+test("delegated workflow completes with a waitlist result when no beds are available", async () => {
+    const repository = repositoryStub();
+    let assignmentWrites = 0;
+    repository.getAvailableBeds = async () => [];
+    repository.assignPatientToBed = async () => {
+        assignmentWrites += 1;
+        return {};
+    };
+    repository.assignStaffToPatient = async () => {
+        assignmentWrites += 1;
+        return {};
+    };
+
+    const result = await runDelegatedErWorkflow(
+        {
+            query: "Create intake and coordinate the ER workflow.",
+            context: {
+                patientId: "P-WAIT-1",
+                chiefComplaint: "Demo concern",
+                assignedByStaffId: "CHARGE-1",
+            },
+        },
+        {
+            repository,
+            agents: {
+                triage: {
+                    agent: createTriageAgent({
+                        beforeModelCallback: createBeforeModelCallback(
+                            (input) => ({
+                                patientId: input.patientId,
+                                severity: "moderate",
+                                urgency: "standard",
+                                routingPriority: "standard_bed",
+                                recommendedBedType: "exam",
+                                requiresMonitor: false,
+                                rationale: "Stable intake.",
+                            }),
+                        ),
+                    }),
+                    inputSchema: undefined as never,
+                },
+                bed: {
+                    agent: createBedManagementAgent({
+                        beforeModelCallback: createBeforeModelCallback(
+                            (input) => ({
+                                patientId: input.patientId,
+                                assignmentStatus: "waitlisted",
+                                selectedBedId: null,
+                                selectedBedType: "exam",
+                                rationale: "No bed available.",
+                                estimatedWaitMinutes: 30,
+                            }),
+                        ),
+                    }),
+                    inputSchema: undefined as never,
+                },
+                reporting: {
+                    agent: createReportingAgent({
+                        beforeModelCallback: createBeforeModelCallback(
+                            (input) => ({
+                                patientId: input.patientId,
+                                operationalSummary:
+                                    "Patient remains queued pending an exam bed.",
+                                dashboardStatus: {
+                                    patientId: input.patientId,
+                                    triageSeverity: "moderate",
+                                    routingPriority: "standard_bed",
+                                    bedId: null,
+                                    assignedStaffIds: [],
+                                    estimatedWaitMinutes: 30,
+                                },
+                                criticalAlerts: [
+                                    "No eligible bed is currently available.",
+                                ],
+                            }),
+                        ),
+                    }),
+                    inputSchema: undefined as never,
+                },
+                root: {
+                    agent: createRootOrchestratorAgent({
+                        includeDelegationTools: false,
+                        beforeModelCallback: createBeforeModelCallback(() => ({
+                            response:
+                                "Patient P-WAIT-1 is triaged and waitlisted for an exam bed.",
+                        })),
+                    }),
+                    inputSchema: undefined as never,
+                },
+            },
+        },
+    );
+
+    assert.equal(result.workflow.bedAssignment.assignmentStatus, "waitlisted");
+    assert.equal(result.workflow.bedAssignment.selectedBedId, null);
+    assert.equal(result.workflow.staffAssignment.assignmentStatus, "deferred");
+    assert.deepEqual(result.workflow.staffAssignment.assignedStaffIds, []);
+    assert.equal(assignmentWrites, 0);
+});

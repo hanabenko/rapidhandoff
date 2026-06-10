@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { AgentTool } from "@google/adk";
 
-import { rootAgent } from "./agent.js";
+import { rootAgent, rootSynthesisAgent } from "./agent.js";
 import { loadErSnapshot, type MongoErRepository } from "./data.js";
 import { createMongoWorkflowTools } from "./workflow-tools.js";
 
@@ -96,4 +96,21 @@ test("root orchestrator exposes delegated sub-agent tools", async () => {
         rootAgent.tools.every((tool) => tool instanceof AgentTool),
         true,
     );
+});
+
+test("delegated agent schemas avoid Vertex-unsupported exclusiveMinimum", async () => {
+    const tools = await rootAgent.canonicalTools();
+    const declarations = tools.map((tool) =>
+        (
+            tool as unknown as {
+                _getDeclaration(): Record<string, unknown>;
+            }
+        )._getDeclaration(),
+    );
+
+    assert.doesNotMatch(JSON.stringify(declarations), /exclusiveMinimum/);
+});
+
+test("root synthesis agent does not resend delegated tool schemas", async () => {
+    assert.deepEqual(await rootSynthesisAgent.canonicalTools(), []);
 });

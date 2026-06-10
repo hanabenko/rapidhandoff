@@ -66,7 +66,8 @@ export function OperationsSummary({
                         <article className="decision-card">
                             <span>Assigned bed</span>
                             <strong>
-                                {workflow.bedAssignment.selectedBedId}
+                                {workflow.bedAssignment.selectedBedId ??
+                                    "Pending"}
                             </strong>
                             <small>
                                 {titleCase(
@@ -112,9 +113,12 @@ export function OperationsSummary({
                     <div className="assignment-line">
                         <span>Assigned staff</span>
                         <strong>
-                            {workflow.staffAssignment.assignedStaffIds.join(
-                                ", ",
-                            )}
+                                {workflow.staffAssignment.assignedStaffIds
+                                    .length
+                                    ? workflow.staffAssignment.assignedStaffIds.join(
+                                          ", ",
+                                      )
+                                    : "Pending bed availability"}
                         </strong>
                     </div>
 

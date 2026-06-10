@@ -33,8 +33,9 @@ export const staffCoordinationAgentInputSchema = z.object({
 
 export const staffCoordinationAgentOutputSchema = z.object({
     patientId: z.string().min(1),
-    assignedStaffIds: z.array(z.string().min(1)).min(1).max(5),
-    assignedRoles: z.array(staffRoleSchema).min(1).max(5),
+    assignmentStatus: z.enum(["assigned", "deferred"]).default("assigned"),
+    assignedStaffIds: z.array(z.string().min(1)).max(5),
+    assignedRoles: z.array(staffRoleSchema).max(5),
     alertMessage: z.string().min(1).max(1000),
     rationale: z.string().min(1).max(1000),
 });

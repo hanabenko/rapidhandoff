@@ -143,18 +143,19 @@ export function InternalOperations({
                                 <div>
                                     <dt>Assigned bed</dt>
                                     <dd>
-                                        {
-                                            workflow.bedAssignment
-                                                .selectedBedId
-                                        }
+                                        {workflow.bedAssignment.selectedBedId ??
+                                            "Pending"}
                                     </dd>
                                 </div>
                                 <div>
                                     <dt>Assigned staff</dt>
                                     <dd>
-                                        {workflow.staffAssignment.assignedStaffIds.join(
-                                            ", ",
-                                        )}
+                                        {workflow.staffAssignment
+                                            .assignedStaffIds.length
+                                            ? workflow.staffAssignment.assignedStaffIds.join(
+                                                  ", ",
+                                              )
+                                            : "Deferred"}
                                     </dd>
                                 </div>
                                 <div>
