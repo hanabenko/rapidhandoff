@@ -1,0 +1,12 @@
+.git
+.gitignore
+.corepack
+.pnpm-store
+node_modules
+dist
+.env
+*.log
+coverage
+docs
+frontend
+seed

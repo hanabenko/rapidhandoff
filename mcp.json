@@ -1,13 +1,25 @@
 {
     "mcpServers": {
+        "mongodb": {
+            "command": "npx",
+            "args": ["-y", "mongodb-mcp-server@latest"],
+            "env": {
+                "MDB_MCP_CONNECTION_STRING": "${MDB_MCP_CONNECTION_STRING}",
+                "MDB_MCP_READ_ONLY": "false",
+                "MDB_MCP_INDEX_CHECK": "true",
+                "MDB_MCP_LOGGERS": "stderr"
+            }
+        },
         "phoenix": {
             "command": "npx",
-            "args": ["-y", "@arizeai/phoenix-mcp@latest"],
-            "env": {
-                "PHOENIX_HOST": "${PHOENIX_HOST}",
-                "PHOENIX_API_KEY": "${PHOENIX_API_KEY}",
-                "PHOENIX_PROJECT": "GC-Rapid-Agent-Hackathon"
-            }
+            "args": [
+                "-y",
+                "@arizeai/phoenix-mcp@latest",
+                "--baseUrl",
+                "${PHOENIX_BASE_URL}",
+                "--apiKey",
+                "${PHOENIX_MCP_API_KEY}"
+            ]
         }
     }
 }

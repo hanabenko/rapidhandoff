@@ -4,21 +4,34 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "test.ts"
+        "agent:dev": "adk web backend/src/agents",
+        "build": "tsc -p tsconfig.build.json",
+        "dev": "tsx watch backend/src/server.ts",
+        "start": "node dist/server.js",
+        "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts",
+        "typecheck": "tsc --noEmit"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
-    "packageManager": "pnpm@10.33.0",
+    "packageManager": "pnpm@11.5.2",
     "dependencies": {
         "@arizeai/phoenix-client": "^6.10.0",
         "@arizeai/phoenix-otel": "^1.0.2",
+        "@google/adk": "^1.2.0",
+        "@modelcontextprotocol/sdk": "^1.29.0",
         "dotenv": "^17.4.2",
-        "mongodb": "^7.2.0"
+        "express": "^4.22.1",
+        "mongodb": "^7.2.0",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@arizeai/phoenix-mcp": "^4.0.13",
-        "@types/node": "^25.9.1"
+        "@google/adk-devtools": "^1.2.0",
+        "@types/express": "^4.17.25",
+        "@types/node": "^25.9.1",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.2"
     },
     "type": "module"
 }
