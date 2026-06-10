@@ -1,4 +1,5 @@
 # Rapid Handoff
+
 Rapid Handoff: an multi agent system that coordinates ER triage, bed assignment, and staff dispatch in real time.
 
 Made by Laasya Aki and Hana Benko for the Google Cloud Rapid Agent Hackathon in May and June of 2026.
@@ -76,5 +77,25 @@ flowchart LR
     orchestrator --> dashboard
 ```
 
-Phase 2 MCP details are in [docs/architecture.md](docs/architecture.md) and
-tool schemas are in [docs/mcp-tools.md](docs/mcp-tools.md).
+MCP details located in [docs/architecture.md](docs/architecture.md), agent
+definitions located in [docs/agents.md](docs/agents.md), and tool schemas are in
+[docs/mcp-tools.md](docs/mcp-tools.md).
+
+## Critical Patient Demo
+
+Run the deterministic Phase 3 workflow without MongoDB, Phoenix, Vertex AI, or
+Google Cloud credentials:
+
+```bash
+pnpm demo:critical-patient
+```
+
+The scenario routes “New critical patient has arrived” through triage,
+bed/resource management, staff coordination, and reporting/analytics. Mock MCP
+adapters validate the same five MCP tool schemas used by the integration layer.
+The printed JSON includes the ESI level, care pathway, assigned bed, estimated
+wait, assigned nurse and doctor, staff alert, dashboard summary, and trace event
+ID.
+
+Live MCP mode is documented in
+[docs/live-integration.md](docs/live-integration.md).

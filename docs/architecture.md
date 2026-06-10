@@ -135,7 +135,7 @@ Environment-driven configuration:
 
 - `PHOENIX_BASE_URL`
 - `PHOENIX_MCP_URL`
-- `PHOENIX_MCP_API_KEY`
+- `PHOENIX_API_KEY`
 - `PHOENIX_PROJECT`
 - `PHOENIX_COLLECTOR_ENDPOINT`
 
@@ -156,24 +156,28 @@ The Phase 2 domain contracts are documented in
 - `update_supply_inventory`
 - `log_arize_trace`
 
-The matching TypeScript placeholder adapters live in `backend/src/mcp`.
-They validate input with Zod and call remote MCP tools through the official
+The matching TypeScript adapters live in `backend/src/mcp`. They validate input
+with Zod and call local stdio or remote HTTP MCP tools through the official
 TypeScript MCP SDK. They do not hardcode secrets.
+
+The production ER domain adapter builds intake, bed, and staff workflows on the
+official MongoDB MCP `find` and `update-many` primitives. The server does not
+expose cross-collection transactions, so bed and staff reservations use
+conditional updates with compensating rollback when a later patient update
+fails. Unique `patientId`, `bedId`, and `staffId` indexes remain required.
 
 ## Runtime configuration
 
-The existing Cloud Run service remains the public backend. MCP servers can be
-run as separate internal services or sidecar-style processes behind protected
-HTTP endpoints. Cloud Run should provide secrets through Secret Manager rather
-than `.env` files.
+The existing Cloud Run service remains the public backend. By default, the
+application launches local stdio MCP servers with `npx`. Cloud Run
+should provide secrets through Secret Manager rather than `.env` files.
 
-Required adapter variables:
+Local stdio variables:
 
 ```bash
-MONGODB_MCP_URL=https://<mongodb-mcp-service>/mcp
-MONGODB_MCP_AUTH_TOKEN=<secret-token-if-used>
-PHOENIX_MCP_URL=https://<phoenix-mcp-service>/mcp
-PHOENIX_MCP_API_KEY=<secret-api-key>
+MONGODB_URI=<mongodb-connection-string>
+PHOENIX_BASE_URL=https://app.phoenix.arize.com
+PHOENIX_API_KEY=<secret-api-key>
 ```
 
 Local MCP client configuration is captured in `mcp.json` for development.

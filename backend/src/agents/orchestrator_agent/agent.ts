@@ -9,6 +9,7 @@ import {
     getErCensusSummaryTool,
     recommendStaffingTool,
 } from "./tools.js";
+import { mongoWorkflowTools } from "./workflow-tools.js";
 
 const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
 
@@ -27,6 +28,11 @@ Routing rules:
 - Coverage, workload, or staffing requests: call recommend_er_staffing.
 - Bed occupancy, bed types, cleaning, or capacity questions: call analyze_er_bed_capacity.
 - Handoffs, huddles, or shift reports: call generate_er_shift_briefing.
+- New patient intake: call upsert_patient_intake before placement actions.
+- Patient placement: call get_available_beds, then assign_patient_to_bed only
+  after an eligible bed and required identifiers are available.
+- Staff placement: call get_available_staff, then assign_staff_to_patient only
+  after the patient and staff identifiers are confirmed.
 - For broad operational questions, call every relevant tool and synthesize the results.
 
 State the data timestamp and important assumptions. Be concise, prioritize urgent
@@ -39,5 +45,6 @@ When a tool reports unavailable data, explain the configuration problem clearly.
         recommendStaffingTool,
         analyzeBedCapacityTool,
         generateShiftBriefingTool,
+        ...mongoWorkflowTools,
     ],
 });

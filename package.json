@@ -6,9 +6,10 @@
     "scripts": {
         "agent:dev": "adk web backend/src/agents",
         "build": "tsc -p tsconfig.build.json",
+        "demo:critical-patient": "tsx backend/src/demo/run-critical-patient.ts",
         "dev": "tsx watch backend/src/server.ts",
         "start": "node dist/server.js",
-        "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts",
+        "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts backend/src/agents/orchestrator_agent/workflow-tools.test.ts backend/src/agents/contracts.test.ts backend/src/mcp/config.test.ts backend/src/mcp/mongodb.test.ts backend/src/demo/critical-patient-workflow.test.ts",
         "typecheck": "tsc --noEmit"
     },
     "keywords": [],
@@ -23,6 +24,7 @@
         "dotenv": "^17.4.2",
         "express": "^4.22.1",
         "mongodb": "^7.2.0",
+        "mongodb-mcp-server": "1.12.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {

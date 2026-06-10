@@ -73,7 +73,9 @@ export function buildCensusSummary(
             thresholdMinutes: longWaitMinutes,
         },
         highAcuityActive: active.filter((patient) =>
-            HIGH_ACUITY.has(patient.triageLevel),
+            patient.triageLevel
+                ? HIGH_ACUITY.has(patient.triageLevel)
+                : false,
         ).length,
     };
 }
@@ -225,7 +227,9 @@ export function buildStaffingRecommendation(
         : snapshot.staff;
     const active = activePatients(snapshot);
     const highAcuity = active.filter((patient) =>
-        HIGH_ACUITY.has(patient.triageLevel),
+        patient.triageLevel
+            ? HIGH_ACUITY.has(patient.triageLevel)
+            : false,
     ).length;
     const waiting = active.filter((patient) => patient.status === "waiting").length;
     const byRole = countBy(relevantStaff, (member) => member.role);

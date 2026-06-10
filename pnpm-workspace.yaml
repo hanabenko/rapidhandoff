@@ -1,5 +1,12 @@
 allowBuilds:
   '@google/genai': true
+  '@modelcontextprotocol/ext-apps': false
+  cpu-features: false
   esbuild: true
+  kerberos: false
+  mongodb-client-encryption: false
+  os-dns-native: false
   protobufjs: true
   sqlite3: true
+  ssh2: false
+  win-export-certificate-and-key: false

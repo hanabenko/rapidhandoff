@@ -1,11 +1,13 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 import type { McpEndpointConfig } from "./config.js";
 
 export class RemoteMcpClient {
     private client?: Client;
-    private transport?: StreamableHTTPClientTransport;
+    private transport?: Transport;
     private connecting?: Promise<Client>;
 
     constructor(
@@ -51,15 +53,26 @@ export class RemoteMcpClient {
     }
 
     private async createConnection(): Promise<Client> {
-        const headers = this.config.authorization
-            ? { Authorization: this.config.authorization }
-            : undefined;
-        const transport = new StreamableHTTPClientTransport(
-            new URL(this.config.url),
-            {
-                requestInit: { headers },
-            },
-        );
+        const transport =
+            this.config.transport === "stdio"
+                ? new StdioClientTransport({
+                      command: this.config.command,
+                      args: this.config.args,
+                      env: this.config.env,
+                  })
+                : new StreamableHTTPClientTransport(
+                      new URL(this.config.url),
+                      {
+                          requestInit: {
+                              headers: this.config.authorization
+                                  ? {
+                                        Authorization:
+                                            this.config.authorization,
+                                    }
+                                  : undefined,
+                          },
+                      },
+                  );
         const client = new Client({
             name: `rapid-handoff-${this.name}`,
             version: "1.0.0",
