@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapid Handoff · Patient Intake</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2e3044;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --accent: #4f8ef7;
+      --esi-1: #ef4444;
+      --esi-2: #f97316;
+      --esi-3: #eab308;
+      --esi-4: #22c55e;
+      --esi-5: #3b82f6;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    header {
+      max-width: 760px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: var(--accent); }
+    header .tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    .card {
+      max-width: 760px;
+      margin: 0 auto 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .row { display: flex; gap: 14px; }
+    .row .field { flex: 1; }
+
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field input:focus,
+    .field textarea:focus {
+      border-color: var(--accent);
+    }
+    .field input.error,
+    .field textarea.error {
+      border-color: var(--red);
+    }
+    .field textarea { resize: vertical; min-height: 76px; }
+    .field .hint {
+      font-size: 0.72rem;
+      color: var(--red);
+      margin-top: 4px;
+      display: none;
+    }
+    .field.invalid .hint { display: block; }
+
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+      gap: 14px;
+    }
+    .bp-pair { display: flex; gap: 6px; align-items: flex-end; }
+    .bp-pair input { min-width: 0; }
+    .bp-sep {
+      font-size: 1.2rem;
+      color: var(--muted);
+      padding-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: opacity 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+    .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Loading */
+    .loading {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 760px;
+      margin: 0 auto 20px;
+    }
+    .loading.visible { display: flex; }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading p { font-size: 0.9rem; color: var(--muted); }
+    .loading p strong { color: var(--text); }
+
+    /* Error banner */
+    .error-banner {
+      display: none;
+      max-width: 760px;
+      margin: 0 auto 20px;
+      padding: 14px 18px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: var(--radius);
+      color: #fca5a5;
+      font-size: 0.88rem;
+    }
+    .error-banner.visible { display: block; }
+
+    /* Result card */
+    .result {
+      display: none;
+      max-width: 760px;
+      margin: 0 auto 20px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .result.visible { display: block; }
+
+    .result-header {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .esi-badge {
+      font-size: 1.5rem;
+      font-weight: 800;
+      width: 52px; height: 52px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .esi-1 { background: var(--esi-1); border: 2px solid #fca5a5; }
+    .esi-2 { background: var(--esi-2); border: 2px solid #fdba74; }
+    .esi-3 { background: var(--esi-3); border: 2px solid #fde047; color: #1a1a1a; }
+    .esi-4 { background: var(--esi-4); border: 2px solid #86efac; color: #1a1a1a; }
+    .esi-5 { background: var(--esi-5); border: 2px solid #93c5fd; }
+
+    .result-title h2 { font-size: 1.1rem; font-weight: 700; }
+    .result-title p { font-size: 0.82rem; color: var(--muted); margin-top: 3px; }
+
+    .result-body { padding: 20px 24px; }
+    .result-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .result-row:last-child { border-bottom: none; }
+    .result-row .label {
+      width: 130px;
+      flex-shrink: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .result-row .value { color: var(--text); line-height: 1.5; }
+
+    .escalation { color: #fca5a5 !important; }
+
+    .result-raw {
+      margin: 16px 0 0;
+      padding: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .reset-btn {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .reset-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    @media (max-width: 600px) {
+      .vitals-grid { grid-template-columns: 1fr 1fr; }
+      .row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Rapid <span>Handoff</span></h1>
+    <span class="tag">Patient Intake</span>
+  </header>
+
+  <div class="card" id="form-card">
+    <div class="section-label">Patient Information</div>
+    <div class="row">
+      <div class="field" id="field-name">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" placeholder="Jane Smith" autocomplete="off" />
+        <div class="hint">Required</div>
+      </div>
+      <div class="field" id="field-age" style="max-width:120px">
+        <label for="age">Age</label>
+        <input type="number" id="age" placeholder="42" min="0" max="150" />
+        <div class="hint">Required</div>
+      </div>
+    </div>
+
+    <div class="field" id="field-complaint">
+      <label for="complaint">Chief Complaint</label>
+      <textarea id="complaint" placeholder="Describe the primary reason for this visit…"></textarea>
+      <div class="hint">Required</div>
+    </div>
+
+    <div class="section-label" style="margin-top:8px">Vitals</div>
+    <div class="vitals-grid">
+      <div class="field">
+        <label for="hr">Heart Rate <small>(bpm)</small></label>
+        <input type="number" id="hr" placeholder="80" min="0" max="300" />
+      </div>
+      <div class="field">
+        <label>Blood Pressure <small>(mmHg)</small></label>
+        <div class="bp-pair">
+          <input type="number" id="bp-sys" placeholder="120" min="0" max="300" />
+          <span class="bp-sep">/</span>
+          <input type="number" id="bp-dia" placeholder="80" min="0" max="200" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="spo2">SpO₂ <small>(%)</small></label>
+        <input type="number" id="spo2" placeholder="98" min="0" max="100" />
+      </div>
+      <div class="field">
+        <label for="temp">Temp <small>(°F)</small></label>
+        <input type="number" id="temp" placeholder="98.6" step="0.1" min="80" max="115" />
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
+      Begin Triage
+    </button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p><strong>Processing intake…</strong> The AI triage team is assessing this patient. This may take 20–40 seconds.</p>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <div class="esi-badge" id="esi-badge">–</div>
+      <div class="result-title">
+        <h2 id="result-name">–</h2>
+        <p id="result-subtitle">–</p>
+      </div>
+    </div>
+    <div class="result-body">
+      <div class="result-row">
+        <span class="label">Patient ID</span>
+        <span class="value" id="r-id">–</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Triage Level</span>
+        <span class="value" id="r-triage">–</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Clinical Reasoning</span>
+        <span class="value" id="r-reasoning">–</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Bed Assigned</span>
+        <span class="value" id="r-bed">–</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Staff Assigned</span>
+        <span class="value" id="r-staff">–</span>
+      </div>
+      <div class="result-row" id="r-flags-row">
+        <span class="label">Escalation Flags</span>
+        <span class="value escalation" id="r-flags">–</span>
+      </div>
+      <details style="margin-top:12px">
+        <summary style="font-size:0.78rem;color:var(--muted);cursor:pointer">Full agent response</summary>
+        <div class="result-raw" id="r-raw"></div>
+      </details>
+      <button class="reset-btn" onclick="resetForm()">← Intake another patient</button>
+    </div>
+  </div>
+
+  <script>
+    function validate() {
+      let ok = true;
+      const required = [
+        { id: "field-name", input: "name" },
+        { id: "field-age", input: "age" },
+        { id: "field-complaint", input: "complaint" },
+      ];
+      for (const { id, input } of required) {
+        const el = document.getElementById(input);
+        const wrapper = document.getElementById(id);
+        if (!el.value.trim()) {
+          wrapper?.classList.add("invalid");
+          el.classList.add("error");
+          ok = false;
+        } else {
+          wrapper?.classList.remove("invalid");
+          el.classList.remove("error");
+        }
+      }
+      return ok;
+    }
+
+    function buildQuery() {
+      const name = document.getElementById("name").value.trim();
+      const age = document.getElementById("age").value.trim();
+      const complaint = document.getElementById("complaint").value.trim();
+      const hr = document.getElementById("hr").value.trim();
+      const sys = document.getElementById("bp-sys").value.trim();
+      const dia = document.getElementById("bp-dia").value.trim();
+      const spo2 = document.getElementById("spo2").value.trim();
+      const temp = document.getElementById("temp").value.trim();
+
+      let vitals = [];
+      if (hr) vitals.push(`HR ${hr} bpm`);
+      if (sys && dia) vitals.push(`BP ${sys}/${dia} mmHg`);
+      if (spo2) vitals.push(`SpO2 ${spo2}%`);
+      if (temp) vitals.push(`temp ${temp}°F`);
+
+      const vitalsStr = vitals.length
+        ? ` Vitals: ${vitals.join(", ")}.`
+        : " Vitals not recorded.";
+
+      return `New patient arrival: ${name}, ${age} years old. Chief complaint: ${complaint}.${vitalsStr}`;
+    }
+
+    function parseResponse(text) {
+      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+      const get = (label) => {
+        for (const line of lines) {
+          const m = line.match(new RegExp(`\\*\\*${label}[:\\*]+\\s*(.+)`, "i"));
+          if (m) return m[1].replace(/\*\*/g, "").trim();
+        }
+        return null;
+      };
+
+      return {
+        patientId: get("Patient registered")?.match(/\(([^)]+)\)/)?.[1] ?? get("Patient registered"),
+        patientName: get("Patient registered")?.split("(")[0].trim(),
+        triageLevel: get("Triage level"),
+        reasoning: get("Clinical reasoning"),
+        bed: get("Bed assigned"),
+        staff: get("Staff assigned"),
+        flags: get("Escalation flags"),
+        esiNumber: (() => {
+          const t = get("Triage level") ?? "";
+          const m = t.match(/ESI\s*(\d)/i);
+          return m ? parseInt(m[1]) : null;
+        })(),
+      };
+    }
+
+    const ESI_LABELS = {
+      1: "Critical — Immediate intervention",
+      2: "Emergent — High risk, do not wait",
+      3: "Urgent — Stable, multiple resources",
+      4: "Less Urgent — One resource needed",
+      5: "Non-Urgent — Exam only",
+    };
+
+    function showResult(rawText, queryName) {
+      const p = parseResponse(rawText);
+      const esi = p.esiNumber;
+
+      const badge = document.getElementById("esi-badge");
+      badge.textContent = esi ?? "?";
+      badge.className = `esi-badge${esi ? ` esi-${esi}` : ""}`;
+
+      document.getElementById("result-name").textContent = p.patientName || queryName || "Patient";
+      document.getElementById("result-subtitle").textContent =
+        esi ? ESI_LABELS[esi] : (p.triageLevel ?? "");
+
+      document.getElementById("r-id").textContent = p.patientId ?? "—";
+      document.getElementById("r-triage").textContent = p.triageLevel ?? "—";
+      document.getElementById("r-reasoning").textContent = p.reasoning ?? "—";
+      document.getElementById("r-bed").textContent = p.bed ?? "—";
+      document.getElementById("r-staff").textContent = p.staff ?? "—";
+
+      const flags = p.flags;
+      const flagsEl = document.getElementById("r-flags");
+      const flagsRow = document.getElementById("r-flags-row");
+      if (flags && flags.toLowerCase() !== "none") {
+        flagsEl.textContent = flags;
+        flagsRow.style.display = "flex";
+      } else {
+        flagsRow.style.display = "none";
+      }
+
+      document.getElementById("r-raw").textContent = rawText;
+      document.getElementById("result").classList.add("visible");
+      document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function handleSubmit() {
+      if (!validate()) return;
+
+      const query = buildQuery();
+      const patientName = document.getElementById("name").value.trim();
+
+      document.getElementById("submit-btn").disabled = true;
+      document.getElementById("loading").classList.add("visible");
+      document.getElementById("error-banner").classList.remove("visible");
+      document.getElementById("result").classList.remove("visible");
+
+      try {
+        const res = await fetch("/agent/orchestrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, userId: "receptionist-ui" }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message ?? `Server error ${res.status}`);
+        }
+
+        showResult(data.response, patientName);
+        document.getElementById("form-card").style.display = "none";
+      } catch (err) {
+        const banner = document.getElementById("error-banner");
+        banner.textContent = `Error: ${err.message}`;
+        banner.classList.add("visible");
+      } finally {
+        document.getElementById("loading").classList.remove("visible");
+        document.getElementById("submit-btn").disabled = false;
+      }
+    }
+
+    function resetForm() {
+      document.getElementById("result").classList.remove("visible");
+      document.getElementById("form-card").style.display = "block";
+      document.getElementById("form-card").querySelectorAll("input, textarea").forEach(el => el.value = "");
+      document.getElementById("form-card").querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
+      document.getElementById("form-card").querySelectorAll(".error").forEach(el => el.classList.remove("error"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  </script>
+</body>
+</html>

@@ -1,8 +1,12 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import express, {
     type NextFunction,
     type Request,
     type Response,
 } from "express";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { z } from "zod";
 
 import {
@@ -35,6 +39,7 @@ export function createApp() {
 
     app.disable("x-powered-by");
     app.use(express.json({ limit: "64kb" }));
+    app.use(express.static(path.join(__dirname, "../../frontend")));
 
     app.get("/", (_request, response) => {
         response.json({

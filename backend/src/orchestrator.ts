@@ -2,7 +2,6 @@ import {
     InMemoryRunner,
     getFunctionCalls,
     getFunctionResponses,
-    isFinalResponse,
     stringifyContent,
 } from "@google/adk";
 
@@ -72,9 +71,12 @@ export async function orchestrateErOperations(
             })),
         );
 
-        const text = stringifyContent(event);
-        if (text && (isFinalResponse(event) || !response)) {
-            response = text;
+        // Capture text from the root orchestrator agent only.
+        // isFinalResponse doesn't fire reliably when AgentTool sub-agents are involved,
+        // so we take the last text event authored by the root agent instead.
+        if (event.author === rootAgent.name) {
+            const text = stringifyContent(event);
+            if (text) response = text;
         }
     }
 
