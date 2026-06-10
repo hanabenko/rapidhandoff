@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapid Handoff · Waiting Room</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0c12;
+      --surface: #13151f;
+      --surface2: #1a1d29;
+      --border: #252838;
+      --text: #e8eaf0;
+      --muted: #565c7a;
+      --accent: #4f8ef7;
+      --esi-1: #ef4444;
+      --esi-2: #f97316;
+      --esi-3: #eab308;
+      --esi-4: #22c55e;
+      --esi-5: #3b82f6;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+
+    /* Header */
+    .topbar {
+      max-width: 1100px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: baseline; gap: 10px; }
+    .brand h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    .brand h1 span { color: var(--accent); }
+    .brand .tag {
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--border); padding: 3px 9px; border-radius: 999px;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .clock {
+      font-size: 1.65rem; font-weight: 700; letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .refresh-note { font-size: 0.72rem; color: var(--muted); }
+
+    /* Stat chips */
+    .stats-row {
+      max-width: 1100px;
+      margin: 0 auto 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .stat-chip .label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 6px; }
+    .stat-chip .value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+    .stat-chip .sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    /* Main grid */
+    .main-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* Queue panel */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header h2 { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+    /* Queue rows */
+    .queue-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .queue-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+    .queue-row:last-child { border-bottom: none; }
+    .queue-row:hover { background: var(--surface2); }
+
+    .queue-pos {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+      width: 24px;
+      flex-shrink: 0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .esi-dot {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+    .esi-dot.esi-1 { background: rgba(239,68,68,0.18); color: var(--esi-1); border: 1.5px solid rgba(239,68,68,0.4); }
+    .esi-dot.esi-2 { background: rgba(249,115,22,0.18); color: var(--esi-2); border: 1.5px solid rgba(249,115,22,0.4); }
+    .esi-dot.esi-3 { background: rgba(234,179,8,0.18); color: var(--esi-3); border: 1.5px solid rgba(234,179,8,0.4); }
+    .esi-dot.esi-4 { background: rgba(34,197,94,0.18); color: var(--esi-4); border: 1.5px solid rgba(34,197,94,0.4); }
+    .esi-dot.esi-5 { background: rgba(59,130,246,0.18); color: var(--esi-5); border: 1.5px solid rgba(59,130,246,0.4); }
+
+    .queue-info { flex: 1; min-width: 0; }
+    .queue-name { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-detail { font-size: 0.75rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .queue-right { text-align: right; flex-shrink: 0; }
+    .wait-est { font-size: 0.82rem; font-weight: 600; }
+    .wait-label { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+    .status-waiting { background: rgba(79,142,247,0.15); color: var(--accent); border: 1px solid rgba(79,142,247,0.3); }
+    .status-in_treatment { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+
+    /* Sidebar panels */
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ESI legend */
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .legend-row:last-child { border-bottom: none; }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .legend-name { flex: 1; font-weight: 500; }
+    .legend-time { color: var(--muted); font-size: 0.75rem; }
+
+    /* Pulse dot for live */
+    .live-dot {
+      width: 8px; height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Offline / error */
+    .offline-bar {
+      display: none;
+      max-width: 1100px;
+      margin: 0 auto 16px;
+      padding: 10px 16px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      color: #fca5a5;
+    }
+    .offline-bar.visible { display: block; }
+
+    /* Bed bar */
+    .bed-bar-wrap { padding: 14px 20px 16px; }
+    .bed-bar-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 10px; }
+    .bed-bar-track {
+      height: 10px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bed-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+    .bed-bar-fill.full { background: var(--esi-1); }
+    .bed-bar-fill.high { background: var(--esi-2); }
+    .bed-counts { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 7px; }
+
+    @media (max-width: 720px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .clock { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>Rapid <span>Handoff</span></h1>
+      <span class="tag">Waiting Room</span>
+    </div>
+    <div class="topbar-right">
+      <div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="refresh-note"><span class="live-dot"></span>Refreshes every 30 s</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="offline-bar" id="offline-bar">Unable to connect to ER system. Retrying…</div>
+
+  <div class="stats-row" id="stats-row">
+    <div class="stat-chip">
+      <div class="label">Waiting</div>
+      <div class="value" id="stat-waiting">—</div>
+      <div class="sub">patients in queue</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">In Treatment</div>
+      <div class="value" id="stat-treatment">—</div>
+      <div class="sub">being seen</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Beds Available</div>
+      <div class="value" id="stat-beds">—</div>
+      <div class="sub" id="stat-beds-sub">of — total</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Staff on Duty</div>
+      <div class="value" id="stat-staff">—</div>
+      <div class="sub">active this shift</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Active Queue</h2>
+        <span id="queue-count" style="font-size:0.75rem;color:var(--muted)"></span>
+      </div>
+      <div id="queue-list">
+        <div class="queue-empty">Loading…</div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-header"><h2>ESI Priority Guide</h2></div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:var(--esi-1)"></div>
+          <div class="legend-name">ESI 1 — Critical</div>
+          <div class="legend-time">Immediate</div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:var(--esi-2)"></div>
+          <div class="legend-name">ESI 2 — Emergent</div>
+          <div class="legend-time">&lt; 15 min</div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:var(--esi-3)"></div>
+          <div class="legend-name">ESI 3 — Urgent</div>
+          <div class="legend-time">30–60 min</div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:var(--esi-4)"></div>
+          <div class="legend-name">ESI 4 — Less Urgent</div>
+          <div class="legend-time">1–2 hrs</div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:var(--esi-5)"></div>
+          <div class="legend-name">ESI 5 — Non-Urgent</div>
+          <div class="legend-time">2+ hrs</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h2>Bed Capacity</h2></div>
+        <div class="bed-bar-wrap">
+          <div class="bed-bar-label">Occupancy</div>
+          <div class="bed-bar-track">
+            <div class="bed-bar-fill" id="bed-bar" style="width:0%"></div>
+          </div>
+          <div class="bed-counts">
+            <span id="bed-label-occupied">— occupied</span>
+            <span id="bed-label-available">— available</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ESI_NAMES = {
+      critical: "ESI 1",
+      emergent: "ESI 2",
+      urgent: "ESI 3",
+      less_urgent: "ESI 4",
+      non_urgent: "ESI 5",
+    };
+    const ESI_NUM = {
+      critical: 1, emergent: 2, urgent: 3, less_urgent: 4, non_urgent: 5,
+    };
+    const WAIT_EST = {
+      critical: "Immediate",
+      emergent: "< 15 min",
+      urgent: "30–60 min",
+      less_urgent: "1–2 hrs",
+      non_urgent: "2+ hrs",
+    };
+
+    function waitColor(triage) {
+      const c = { critical: "#ef4444", emergent: "#f97316", urgent: "#eab308", less_urgent: "#22c55e", non_urgent: "#3b82f6" };
+      return c[triage] ?? "var(--text)";
+    }
+
+    function elapsed(arrivalTime) {
+      const ms = Date.now() - new Date(arrivalTime).getTime();
+      const m = Math.floor(ms / 60000);
+      if (m < 1) return "just arrived";
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60), rem = m % 60;
+      return `${h}h ${rem}m ago`;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent =
+        now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function renderQueue(patients) {
+      const el = document.getElementById("queue-list");
+      document.getElementById("queue-count").textContent =
+        patients.length ? `${patients.length} patient${patients.length !== 1 ? "s" : ""}` : "";
+
+      if (!patients.length) {
+        el.innerHTML = '<div class="queue-empty">No patients currently in queue.</div>';
+        return;
+      }
+
+      el.innerHTML = patients.map(p => {
+        const esiNum = ESI_NUM[p.triageLevel] ?? "?";
+        const statusClass = p.status === "in_treatment" ? "status-in_treatment" : "status-waiting";
+        const statusLabel = p.status === "in_treatment" ? "In Treatment" : "Waiting";
+        return `
+          <div class="queue-row">
+            <div class="queue-pos">${p.position}</div>
+            <div class="esi-dot esi-${esiNum}">${esiNum}</div>
+            <div class="queue-info">
+              <div class="queue-name">${escHtml(String(p.name))}</div>
+              <div class="queue-detail">${escHtml(String(p.chiefComplaint ?? "—"))} · ${elapsed(p.arrivalTime)}</div>
+            </div>
+            <div class="queue-right">
+              <div class="wait-est" style="color:${waitColor(p.triageLevel)}">${WAIT_EST[p.triageLevel] ?? "—"}</div>
+              <div class="wait-label"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderStats(stats) {
+      document.getElementById("stat-waiting").textContent = stats.waitingCount;
+      document.getElementById("stat-treatment").textContent = stats.inTreatmentCount;
+      document.getElementById("stat-beds").textContent = stats.bedsAvailable;
+      document.getElementById("stat-beds-sub").textContent = `of ${stats.totalBeds} total`;
+      document.getElementById("stat-staff").textContent = stats.staffOnDuty;
+
+      const pct = stats.totalBeds > 0 ? Math.round((stats.bedsOccupied / stats.totalBeds) * 100) : 0;
+      const bar = document.getElementById("bed-bar");
+      bar.style.width = `${pct}%`;
+      bar.className = `bed-bar-fill${pct >= 90 ? " full" : pct >= 70 ? " high" : ""}`;
+      document.getElementById("bed-label-occupied").textContent = `${stats.bedsOccupied} occupied`;
+      document.getElementById("bed-label-available").textContent = `${stats.bedsAvailable} available`;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/er-status");
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = await res.json();
+        document.getElementById("offline-bar").classList.remove("visible");
+        renderQueue(data.waiting);
+        renderStats(data.stats);
+      } catch {
+        document.getElementById("offline-bar").classList.add("visible");
+      }
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+    fetchStatus();
+    setInterval(fetchStatus, 30_000);
+  </script>
+</body>
+</html>

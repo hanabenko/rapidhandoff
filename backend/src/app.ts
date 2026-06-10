@@ -17,6 +17,15 @@ import {
     recommendStaffingTool,
 } from "./agents/orchestrator_agent/tools.js";
 import { orchestrateErOperations } from "./orchestrator.js";
+import { loadErSnapshot } from "./agents/orchestrator_agent/data.js";
+
+const TRIAGE_ORDER: Record<string, number> = {
+    critical: 1,
+    emergent: 2,
+    urgent: 3,
+    less_urgent: 4,
+    non_urgent: 5,
+};
 
 const orchestrateRequestSchema = z.object({
     query: z.string().trim().min(1).max(10_000),
@@ -51,6 +60,52 @@ export function createApp() {
     app.get("/health", (_request, response) => {
         response.json({ ok: true });
     });
+
+    app.get(
+        "/api/er-status",
+        async (_request: Request, response: Response, next: NextFunction) => {
+            try {
+                const snapshot = await loadErSnapshot();
+
+                const waiting = snapshot.patients
+                    .filter((p) => p.status === "waiting" || p.status === "in_treatment")
+                    .sort((a, b) => {
+                        const ao = TRIAGE_ORDER[a.triageLevel] ?? 99;
+                        const bo = TRIAGE_ORDER[b.triageLevel] ?? 99;
+                        if (ao !== bo) return ao - bo;
+                        return new Date(a.arrivalTime).getTime() - new Date(b.arrivalTime).getTime();
+                    })
+                    .map((p, i) => ({
+                        position: i + 1,
+                        patientId: p.patientId,
+                        name: (p as unknown as Record<string, unknown>).name ?? "—",
+                        triageLevel: p.triageLevel,
+                        status: p.status,
+                        arrivalTime: p.arrivalTime,
+                        chiefComplaint: (p as unknown as Record<string, unknown>).chiefComplaint ?? null,
+                    }));
+
+                const bedsAvailable = snapshot.beds.filter((b) => b.status === "available").length;
+                const bedsOccupied = snapshot.beds.filter((b) => b.status === "occupied").length;
+                const staffOnDuty = snapshot.staff.filter((s) => !s.available || s.currentAssignment).length;
+
+                response.json({
+                    capturedAt: snapshot.capturedAt,
+                    waiting,
+                    stats: {
+                        waitingCount: waiting.filter((p) => p.status === "waiting").length,
+                        inTreatmentCount: waiting.filter((p) => p.status === "in_treatment").length,
+                        bedsAvailable,
+                        bedsOccupied,
+                        totalBeds: snapshot.beds.length,
+                        staffOnDuty,
+                    },
+                });
+            } catch (error) {
+                next(error);
+            }
+        },
+    );
 
     app.post(
         "/agent/orchestrate",
