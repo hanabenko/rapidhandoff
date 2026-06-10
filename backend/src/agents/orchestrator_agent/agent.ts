@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { LlmAgent } from "@google/adk";
+import { AgentTool, LlmAgent } from "@google/adk";
 
 import {
     assignPatientToBedTool,
@@ -16,6 +16,7 @@ import {
     getErCensusSummaryTool,
     recommendStaffingTool,
 } from "./tools.js";
+import { triageAgent } from "../triage_agent/agent.js";
 
 const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
 
@@ -50,28 +51,17 @@ Do not invent patient details, diagnoses, or treatment decisions.
 When a new patient arrives, execute this workflow in strict order.
 Do not skip steps. Do not proceed to the next step until the current one succeeds.
 
-### Step 1 — Triage Assessment (your reasoning, then intake_patient)
+### Step 1 — Triage Assessment (delegate to er_triage_agent, then intake_patient)
 
-Assess the ESI triage level from the patient's vitals and chief complaint:
+Call er_triage_agent with the patient's full description: name, age, chief complaint,
+and all available vitals. The triage agent will return an ESI level (1–5), clinical
+reasoning, care pathway, recommended bed type, and escalation flags.
 
-| ESI | Level | Criteria |
-|-----|-------|----------|
-| 1 | Critical | Immediate life threat — cardiac arrest, unresponsive, severe respiratory distress, uncontrolled hemorrhage |
-| 2 | Emergent | High risk, severe pain or distress — chest pain, stroke symptoms, altered mental status, SpO2 < 90%, HR > 130 |
-| 3 | Urgent | Stable but needs multiple interventions — moderate pain, fever with concern, fracture, lacerations needing sutures |
-| 4 | Less urgent | Single resource expected — minor injury, simple infection, mild pain |
-| 5 | Non-urgent | No resources expected — medication refill, minor rash, paperwork |
-
-Recommended bed type by ESI level:
-- ESI 1–2 → trauma bed (request requiresMonitor: true)
-- ESI 3 → exam or isolation bed
-- ESI 4–5 → exam bed
-
-Then call intake_patient with:
-- name, age, chiefComplaint, vitals
-- triageLevel (your ESI assessment as: critical/emergent/urgent/less_urgent/non_urgent)
-- carePathway (your clinical reasoning: what happened, why this ESI level, what to watch for)
-- recommendedBedType
+Then call intake_patient with the fields from the triage agent's response:
+- name, age, chiefComplaint, vitals (raw values)
+- triageLevel (from triage agent)
+- carePathway (from triage agent)
+- recommendedBedType (from triage agent)
 
 ### Step 2 — Bed Assignment
 
@@ -117,6 +107,8 @@ Report back in this format:
         recommendStaffingTool,
         analyzeBedCapacityTool,
         generateShiftBriefingTool,
+        // Triage sub-agent (ESI assessment)
+        new AgentTool({ agent: triageAgent }),
         // Intake action tools
         intakePatientTool,
         getAvailableBedsTool,
