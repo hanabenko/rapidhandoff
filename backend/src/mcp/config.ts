@@ -40,6 +40,14 @@ function requireValue(name: string, value: string | undefined): string {
 export function getMongoMcpConfig(
     env: NodeJS.ProcessEnv = process.env,
 ): McpEndpointConfig {
+    if (env.MONGODB_MCP_URL) {
+        return {
+            transport: "http",
+            url: requireUrl("MONGODB_MCP_URL", env.MONGODB_MCP_URL),
+            authorization: optionalBearerToken(env.MONGODB_MCP_AUTH_TOKEN),
+        };
+    }
+
     return {
         transport: "stdio",
         command: "npx",
@@ -54,17 +62,19 @@ export function getMongoMcpConfig(
             MDB_MCP_LOGGERS: env.MDB_MCP_LOGGERS ?? "stderr",
         },
     };
-
-    return {
-        transport: "http",
-        url: requireUrl("MONGODB_MCP_URL", env.MONGODB_MCP_URL),
-        authorization: optionalBearerToken(env.MONGODB_MCP_AUTH_TOKEN),
-    };
 }
 
 export function getPhoenixMcpConfig(
     env: NodeJS.ProcessEnv = process.env,
 ): McpEndpointConfig {
+    if (env.PHOENIX_MCP_URL) {
+        return {
+            transport: "http",
+            url: requireUrl("PHOENIX_MCP_URL", env.PHOENIX_MCP_URL),
+            authorization: optionalBearerToken(env.PHOENIX_API_KEY),
+        };
+    }
+
     return {
         transport: "stdio",
         command: "npx",
@@ -76,11 +86,5 @@ export function getPhoenixMcpConfig(
             "--apiKey",
             requireValue("PHOENIX_API_KEY", env.PHOENIX_API_KEY),
         ],
-    };
-
-    return {
-        transport: "http",
-        url: requireUrl("PHOENIX_MCP_URL", env.PHOENIX_MCP_URL),
-        authorization: optionalBearerToken(env.PHOENIX_API_KEY),
     };
 }

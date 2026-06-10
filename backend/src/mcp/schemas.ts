@@ -24,6 +24,7 @@ export const patientVitalsSchema = z.object({
 
 export const upsertPatientIntakeInputSchema = z.object({
     patientId: z.string().min(1),
+    smokeTestRunId: z.string().min(1).optional(),
     name: z.string().min(1).optional(),
     age: z.number().int().min(0).max(130).optional(),
     chiefComplaint: z.string().min(1).optional(),

@@ -12,6 +12,7 @@ import {
     getErCensusSummaryTool,
     recommendStaffingTool,
 } from "./agents/orchestrator_agent/tools.js";
+import { getOperationsStatus } from "./operations.js";
 import { orchestrateErOperations } from "./orchestrator.js";
 
 const orchestrateRequestSchema = z.object({
@@ -30,10 +31,48 @@ const directTools = {
     briefing: generateShiftBriefingTool,
 } as const;
 
+export function getAllowedFrontendOrigins(
+    configuredOrigins = process.env.FRONTEND_ORIGIN,
+): Set<string> {
+    const origins = configuredOrigins
+        ?.split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+
+    return new Set(
+        origins?.length
+            ? origins
+            : ["http://localhost:5173", "http://127.0.0.1:5173"],
+    );
+}
+
 export function createApp() {
     const app = express();
+    const allowedFrontendOrigins = getAllowedFrontendOrigins();
 
     app.disable("x-powered-by");
+    app.use((request, response, next) => {
+        const requestOrigin = request.header("Origin");
+        if (requestOrigin && allowedFrontendOrigins.has(requestOrigin)) {
+            response.header("Access-Control-Allow-Origin", requestOrigin);
+            response.header("Vary", "Origin");
+            response.header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, Authorization",
+            );
+            response.header(
+                "Access-Control-Allow-Methods",
+                "GET, POST, OPTIONS",
+            );
+        }
+
+        if (request.method === "OPTIONS") {
+            response.sendStatus(204);
+            return;
+        }
+
+        next();
+    });
     app.use(express.json({ limit: "64kb" }));
 
     app.get("/", (_request, response) => {
@@ -46,6 +85,17 @@ export function createApp() {
     app.get("/health", (_request, response) => {
         response.json({ ok: true });
     });
+
+    app.get(
+        "/operations/status",
+        async (_request: Request, response: Response, next: NextFunction) => {
+            try {
+                response.json(await getOperationsStatus());
+            } catch (error) {
+                next(error);
+            }
+        },
+    );
 
     app.post(
         "/agent/orchestrate",

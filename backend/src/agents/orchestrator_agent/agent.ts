@@ -1,50 +1,75 @@
 import "dotenv/config";
 
-import { LlmAgent } from "@google/adk";
+import { AgentTool, LlmAgent, type BeforeModelCallback } from "@google/adk";
 
 import {
-    analyzeBedCapacityTool,
-    detectBottlenecksTool,
-    generateShiftBriefingTool,
-    getErCensusSummaryTool,
-    recommendStaffingTool,
-} from "./tools.js";
-import { mongoWorkflowTools } from "./workflow-tools.js";
+    bedManagementAgent,
+    createBedManagementAgent,
+} from "../bed_management_agent/agent.js";
+import {
+    createReportingAgent,
+    reportingAgent,
+} from "../reporting_agent/agent.js";
+import {
+    createStaffCoordinationAgent,
+    staffCoordinationAgent,
+} from "../staff_coordination_agent/agent.js";
+import {
+    createTriageAgent,
+    triageAgent,
+} from "../triage_agent/agent.js";
+import {
+    rootOrchestratorAgentInputSchema,
+    rootOrchestratorAgentOutputSchema,
+} from "./contracts.js";
 
 const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
 
-export const rootAgent = new LlmAgent({
-    name: "er_operations_orchestrator",
-    model,
-    description:
-        "Routes emergency department operations questions to census, flow, staffing, capacity, and briefing tools.",
-    instruction: `You are an emergency department operations orchestrator.
+export function createRootOrchestratorAgent(options: {
+    beforeModelCallback?: BeforeModelCallback;
+} = {}) {
+    const triageChild = createTriageAgent();
+    const bedChild = createBedManagementAgent();
+    const staffChild = createStaffCoordinationAgent();
+    const reportingChild = createReportingAgent();
 
-Use the available tools for every question that depends on current ER data.
+    return new LlmAgent({
+        name: "er_operations_orchestrator",
+        model,
+        description:
+            "Synthesizes delegated ER workflow outputs into the final operational response.",
+        instruction: `You are the Rapid Handoff root orchestrator.
 
-Routing rules:
-- Census, patient counts, acuity, waits, or treatment load: call get_er_census_summary.
-- Delays, queues, throughput, crowding, or flow constraints: call detect_er_bottlenecks.
-- Coverage, workload, or staffing requests: call recommend_er_staffing.
-- Bed occupancy, bed types, cleaning, or capacity questions: call analyze_er_bed_capacity.
-- Handoffs, huddles, or shift reports: call generate_er_shift_briefing.
-- New patient intake: call upsert_patient_intake before placement actions.
-- Patient placement: call get_available_beds, then assign_patient_to_bed only
-  after an eligible bed and required identifiers are available.
-- Staff placement: call get_available_staff, then assign_staff_to_patient only
-  after the patient and staff identifiers are confirmed.
-- For broad operational questions, call every relevant tool and synthesize the results.
+The specialized agents have already completed the workflow reasoning. Your role
+is to synthesize their structured outputs into a concise final operational
+response for the caller.
 
-State the data timestamp and important assumptions. Be concise, prioritize urgent
-operational risks, and separate observed facts from recommendations. Do not invent
-patient details or make diagnoses, treatment decisions, or replace clinical judgment.
-When a tool reports unavailable data, explain the configuration problem clearly.`,
-    tools: [
-        getErCensusSummaryTool,
-        detectBottlenecksTool,
-        recommendStaffingTool,
-        analyzeBedCapacityTool,
-        generateShiftBriefingTool,
-        ...mongoWorkflowTools,
-    ],
-});
+Return JSON that matches the schema exactly.
+Do not redo the sub-agent reasoning. Summarize the delegated results clearly.`,
+        inputSchema: rootOrchestratorAgentInputSchema,
+        outputSchema: rootOrchestratorAgentOutputSchema,
+        disallowTransferToParent: true,
+        disallowTransferToPeers: true,
+        subAgents: [triageChild, bedChild, staffChild, reportingChild],
+        tools: [
+            new AgentTool({ agent: triageChild }),
+            new AgentTool({ agent: bedChild }),
+            new AgentTool({ agent: staffChild }),
+            new AgentTool({ agent: reportingChild }),
+        ],
+        beforeModelCallback: options.beforeModelCallback,
+    });
+}
+
+export const rootAgent = createRootOrchestratorAgent();
+
+export {
+    bedManagementAgent,
+    reportingAgent,
+    staffCoordinationAgent,
+    triageAgent,
+    createBedManagementAgent,
+    createReportingAgent,
+    createStaffCoordinationAgent,
+    createTriageAgent,
+};

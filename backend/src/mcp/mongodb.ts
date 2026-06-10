@@ -4,6 +4,15 @@ import { z } from "zod";
 import { RemoteMcpClient } from "./client.js";
 import { getMongoMcpConfig } from "./config.js";
 import {
+    buildBedAssignmentTraceAttributes,
+    buildBedLookupTraceAttributes,
+    buildPatientIntakeTraceAttributes,
+    buildStaffAssignmentTraceAttributes,
+    buildStaffLookupTraceAttributes,
+    withWorkflowSpan,
+    workflowSpanNames,
+} from "../observability/tracing.js";
+import {
     assignPatientToBedInputSchema,
     assignStaffToPatientInputSchema,
     getAvailableBedsInputSchema,
@@ -36,6 +45,8 @@ export interface Patient {
     triageLevel?: TriageLevel;
     status: PatientStatus;
     arrivalTime: Date;
+    assignedBedId?: string;
+    assignedStaffIds?: string[];
 }
 
 export interface Bed {
@@ -74,10 +85,7 @@ export interface ErSnapshot {
 }
 
 export interface MongoMcpToolClient {
-    callTool(
-        toolName: string,
-        args: Record<string, unknown>,
-    ): Promise<unknown>;
+    callTool(toolName: string, args: Record<string, unknown>): Promise<unknown>;
     close?(): Promise<void>;
 }
 
@@ -95,16 +103,12 @@ export interface MongoErRepository {
 const patientSchema = z.object({
     patientId: z.string(),
     triageLevel: z
-        .enum([
-            "critical",
-            "emergent",
-            "urgent",
-            "less_urgent",
-            "non_urgent",
-        ])
+        .enum(["critical", "emergent", "urgent", "less_urgent", "non_urgent"])
         .optional(),
     status: z.enum(["waiting", "in_treatment", "admitted", "discharged"]),
     arrivalTime: z.coerce.date(),
+    assignedBedId: z.string().optional(),
+    assignedStaffIds: z.array(z.string()).optional(),
 });
 
 const bedSchema = z.object({
@@ -171,19 +175,50 @@ function textContent(result: unknown): string[] {
     });
 }
 
+function extractJsonPayload(text: string): string | null {
+    const match = text.match(
+        /<untrusted-user-data-([a-f0-9-]+)>\s*([\s\S]*?)\s*<\/untrusted-user-data-\1>/,
+    );
+
+    return match?.[2]?.trim() ?? null;
+}
+
+function jsonCandidates(text: string): string[] {
+    const candidates = [text.trim()];
+
+    const arrayStart = text.indexOf("[");
+    const arrayEnd = text.lastIndexOf("]");
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+        candidates.unshift(text.slice(arrayStart, arrayEnd + 1).trim());
+    }
+
+    const objectStart = text.indexOf("{");
+    const objectEnd = text.lastIndexOf("}");
+    if (objectStart !== -1 && objectEnd > objectStart) {
+        candidates.push(text.slice(objectStart, objectEnd + 1).trim());
+    }
+
+    return candidates;
+}
+
 function documentsFromFind(result: unknown): unknown[] {
     const documents: unknown[] = [];
 
     for (const text of textContent(result)) {
-        try {
-            const parsed = BSON.EJSON.parse(text, { relaxed: true });
-            if (Array.isArray(parsed)) {
-                documents.push(...parsed);
-            } else if (parsed && typeof parsed === "object") {
-                documents.push(parsed);
+        for (const candidate of jsonCandidates(text)) {
+            try {
+                const parsed = BSON.EJSON.parse(candidate, { relaxed: true });
+
+                if (Array.isArray(parsed)) {
+                    documents.push(...parsed);
+                } else if (parsed && typeof parsed === "object") {
+                    documents.push(parsed);
+                }
+
+                break;
+            } catch {
+                // Try next candidate.
             }
-        } catch {
-            // The official find tool includes a human-readable summary item.
         }
     }
 
@@ -245,8 +280,7 @@ export class MongoErMcpAdapter implements MongoErRepository {
     ) {
         const env = options.env ?? process.env;
         this.client =
-            client ??
-            new RemoteMcpClient("mongodb", getMongoMcpConfig(env));
+            client ?? new RemoteMcpClient("mongodb", getMongoMcpConfig(env));
         this.database =
             options.database ?? env.MONGODB_MCP_DATABASE ?? "er_system";
     }
@@ -270,236 +304,300 @@ export class MongoErMcpAdapter implements MongoErRepository {
 
     async upsertPatientIntake(input: UpsertPatientIntakeInput) {
         const parsed = upsertPatientIntakeInputSchema.parse(input);
-        const now = new Date().toISOString();
-        const set: Record<string, unknown> = {
-            ...parsed,
-            updatedAt: mongoDate(now),
-        };
+        return withWorkflowSpan(
+            workflowSpanNames.patientIntake,
+            buildPatientIntakeTraceAttributes(parsed),
+            async (span) => {
+                const now = new Date().toISOString();
 
-        if (parsed.arrivalTime) {
-            set.arrivalTime = mongoDate(parsed.arrivalTime);
-        }
+                const existing = await this.find(
+                    "patients",
+                    { patientId: parsed.patientId },
+                    { limit: 1 },
+                );
 
-        const setOnInsert: Record<string, unknown> = {
-            createdAt: mongoDate(now),
-        };
-        if (!parsed.arrivalTime) {
-            setOnInsert.arrivalTime = mongoDate(now);
-        }
-        if (!parsed.status) {
-            setOnInsert.status = "waiting";
-        }
+                const set: Record<string, unknown> = {
+                    ...parsed,
+                    updatedAt: mongoDate(now),
+                };
 
-        const counts = updateCounts(
-            await this.updateMany(
-                "patients",
-                { patientId: parsed.patientId },
-                {
-                    $set: set,
-                    $setOnInsert: setOnInsert,
-                },
-                true,
-            ),
+                if (parsed.arrivalTime) {
+                    set.arrivalTime = mongoDate(parsed.arrivalTime);
+                }
+
+                if (existing.length > 0) {
+                    const counts = updateCounts(
+                        await this.updateMany(
+                            "patients",
+                            { patientId: parsed.patientId },
+                            { $set: set },
+                        ),
+                    );
+
+                    if (counts.matched !== 1) {
+                        throw new Error(
+                            `Patient intake update affected ${counts.matched} records.`,
+                        );
+                    }
+
+                    span.setAttributes({
+                        "rapid_handoff.intake_action": "updated",
+                    });
+                    return {
+                        patientId: parsed.patientId,
+                        status: "updated",
+                    };
+                }
+
+                const document: Record<string, unknown> = {
+                    ...parsed,
+                    status: parsed.status ?? "waiting",
+                    arrivalTime: mongoDate(parsed.arrivalTime ?? now),
+                    createdAt: mongoDate(now),
+                    updatedAt: mongoDate(now),
+                };
+
+                await this.insertMany("patients", [document]);
+                span.setAttributes({
+                    "rapid_handoff.intake_action": "created",
+                });
+
+                return {
+                    patientId: parsed.patientId,
+                    status: "created",
+                };
+            },
         );
-
-        if (counts.matched + counts.upserted !== 1) {
-            throw new Error(
-                `Patient intake upsert affected ${counts.matched + counts.upserted} records.`,
-            );
-        }
-
-        return {
-            patientId: parsed.patientId,
-            status: counts.upserted === 1 ? "created" : "updated",
-        };
     }
 
     async getAvailableBeds(input: GetAvailableBedsInput): Promise<Bed[]> {
         const parsed = getAvailableBedsInputSchema.parse(input);
-        const filter: Record<string, unknown> = {
-            status: "available",
-            needsCleaning: false,
-        };
-        if (parsed.bedType) {
-            filter.type = parsed.bedType;
-        }
-        if (parsed.requiresMonitor) {
-            filter.hasMonitor = true;
-        }
+        return withWorkflowSpan(
+            workflowSpanNames.bedLookup,
+            buildBedLookupTraceAttributes(parsed),
+            async (span) => {
+                const filter: Record<string, unknown> = {
+                    status: "available",
+                    needsCleaning: false,
+                };
+                if (parsed.bedType) {
+                    filter.type = parsed.bedType;
+                }
+                if (parsed.requiresMonitor) {
+                    filter.hasMonitor = true;
+                }
 
-        return z
-            .array(bedSchema)
-            .parse(
-                await this.find("beds", filter, {
+                const raw = await this.client.callTool("find", {
+                    database: this.database,
+                    collection: "beds",
+                    filter,
                     limit: parsed.limit,
                     sort: { room: 1 },
-                }),
-            );
+                });
+
+                const beds = z.array(bedSchema).parse(documentsFromFind(raw));
+                span.setAttributes({
+                    "rapid_handoff.available_bed_count": beds.length,
+                });
+                return beds;
+            },
+        );
     }
 
     async assignPatientToBed(input: AssignPatientToBedInput) {
         const parsed = assignPatientToBedInputSchema.parse(input);
-        const now = new Date().toISOString();
-        const bedFilter: Record<string, unknown> = {
-            bedId: parsed.bedId,
-            status: "available",
-            needsCleaning: false,
-        };
-        if (parsed.expectedBedVersion !== undefined) {
-            bedFilter.version = parsed.expectedBedVersion;
-        }
-
-        const bedCounts = updateCounts(
-            await this.updateMany("beds", bedFilter, {
-                $set: {
-                    status: "occupied",
-                    occupiedByPatientId: parsed.patientId,
-                    updatedAt: mongoDate(now),
-                },
-                $inc: { version: 1 },
-            }),
-        );
-        if (bedCounts.matched !== 1) {
-            throw new Error(
-                `Bed ${parsed.bedId} is no longer available for assignment.`,
-            );
-        }
-
-        const patientCounts = updateCounts(
-            await this.updateMany(
-                "patients",
-                { patientId: parsed.patientId },
-                {
-                    $set: {
-                        assignedBedId: parsed.bedId,
-                        assignedByStaffId: parsed.assignedByStaffId,
-                        status: "in_treatment",
-                        updatedAt: mongoDate(now),
-                    },
-                },
-            ),
-        );
-
-        if (patientCounts.matched !== 1) {
-            // The official MCP server does not expose multi-document
-            // transactions. Release the conditionally reserved bed so a
-            // failed patient update does not leave it stranded.
-            await this.updateMany(
-                "beds",
-                {
+        return withWorkflowSpan(
+            workflowSpanNames.bedAssignment,
+            buildBedAssignmentTraceAttributes(parsed),
+            async (span) => {
+                const now = new Date().toISOString();
+                const bedFilter: Record<string, unknown> = {
                     bedId: parsed.bedId,
-                    occupiedByPatientId: parsed.patientId,
-                },
-                {
-                    $set: {
-                        status: "available",
-                        occupiedByPatientId: null,
-                        updatedAt: mongoDate(new Date().toISOString()),
-                    },
-                    $inc: { version: 1 },
-                },
-            );
-            throw new Error(`Patient ${parsed.patientId} was not found.`);
-        }
+                    status: "available",
+                    needsCleaning: false,
+                };
+                if (parsed.expectedBedVersion !== undefined) {
+                    bedFilter.version = parsed.expectedBedVersion;
+                }
 
-        return {
-            status: "assigned",
-            patientId: parsed.patientId,
-            bedId: parsed.bedId,
-        };
+                const bedCounts = updateCounts(
+                    await this.updateMany("beds", bedFilter, {
+                        $set: {
+                            status: "occupied",
+                            occupiedByPatientId: parsed.patientId,
+                            updatedAt: mongoDate(now),
+                        },
+                        $inc: { version: 1 },
+                    }),
+                );
+                if (bedCounts.matched !== 1) {
+                    throw new Error(
+                        `Bed ${parsed.bedId} is no longer available for assignment.`,
+                    );
+                }
+
+                const patientCounts = updateCounts(
+                    await this.updateMany(
+                        "patients",
+                        { patientId: parsed.patientId },
+                        {
+                            $set: {
+                                assignedBedId: parsed.bedId,
+                                assignedByStaffId: parsed.assignedByStaffId,
+                                status: "in_treatment",
+                                updatedAt: mongoDate(now),
+                            },
+                        },
+                    ),
+                );
+
+                if (patientCounts.matched !== 1) {
+                    await this.updateMany(
+                        "beds",
+                        {
+                            bedId: parsed.bedId,
+                            occupiedByPatientId: parsed.patientId,
+                        },
+                        {
+                            $set: {
+                                status: "available",
+                                occupiedByPatientId: null,
+                                updatedAt: mongoDate(new Date().toISOString()),
+                            },
+                            $inc: { version: 1 },
+                        },
+                    );
+                    throw new Error(`Patient ${parsed.patientId} was not found.`);
+                }
+
+                span.setAttributes({
+                    "rapid_handoff.assignment_status": "assigned",
+                });
+                return {
+                    status: "assigned",
+                    patientId: parsed.patientId,
+                    bedId: parsed.bedId,
+                };
+            },
+        );
     }
 
     async getAvailableStaff(
         input: GetAvailableStaffInput,
     ): Promise<StaffMember[]> {
         const parsed = getAvailableStaffInputSchema.parse(input);
-        const filter: Record<string, unknown> = { available: true };
-        if (parsed.roles?.length) {
-            filter.role = { $in: parsed.roles };
-        }
-        if (parsed.shift) {
-            filter.shift = parsed.shift;
-        }
+        return withWorkflowSpan(
+            workflowSpanNames.staffLookup,
+            buildStaffLookupTraceAttributes(parsed),
+            async (span) => {
+                const filter: Record<string, unknown> = { available: true };
+                if (parsed.roles?.length) {
+                    filter.role = { $in: parsed.roles };
+                }
+                if (parsed.shift) {
+                    filter.shift = parsed.shift;
+                }
 
-        return z
-            .array(staffSchema)
-            .parse(
-                await this.find("staff", filter, {
-                    limit: parsed.limit,
-                    sort: { role: 1, name: 1 },
-                }),
-            );
+                const staff = z.array(staffSchema).parse(
+                    await this.find("staff", filter, {
+                        limit: parsed.limit,
+                        sort: { role: 1, name: 1 },
+                    }),
+                );
+                span.setAttributes({
+                    "rapid_handoff.available_staff_count": staff.length,
+                });
+                return staff;
+            },
+        );
     }
 
     async assignStaffToPatient(input: AssignStaffToPatientInput) {
         const parsed = assignStaffToPatientInputSchema.parse(input);
-        const assigned: string[] = [];
+        return withWorkflowSpan(
+            workflowSpanNames.staffAssignment,
+            buildStaffAssignmentTraceAttributes(parsed),
+            async (span) => {
+                const assigned: string[] = [];
 
-        try {
-            for (const staffId of parsed.staffIds) {
-                const counts = updateCounts(
-                    await this.updateMany(
-                        "staff",
-                        { staffId, available: true },
-                        {
-                            $set: {
-                                available: false,
-                                currentAssignment: parsed.patientId,
-                                updatedAt: mongoDate(new Date().toISOString()),
+                try {
+                    for (const staffId of parsed.staffIds) {
+                        const counts = updateCounts(
+                            await this.updateMany(
+                                "staff",
+                                { staffId, available: true },
+                                {
+                                    $set: {
+                                        available: false,
+                                        currentAssignment: parsed.patientId,
+                                        updatedAt: mongoDate(
+                                            new Date().toISOString(),
+                                        ),
+                                    },
+                                },
+                            ),
+                        );
+                        if (counts.matched !== 1) {
+                            throw new Error(
+                                `Staff member ${staffId} is no longer available.`,
+                            );
+                        }
+                        assigned.push(staffId);
+                    }
+
+                    const patientCounts = updateCounts(
+                        await this.updateMany(
+                            "patients",
+                            { patientId: parsed.patientId },
+                            {
+                                $set: {
+                                    assignedStaffIds: parsed.staffIds,
+                                    updatedAt: mongoDate(
+                                        new Date().toISOString(),
+                                    ),
+                                },
                             },
-                        },
-                    ),
-                );
-                if (counts.matched !== 1) {
-                    throw new Error(
-                        `Staff member ${staffId} is no longer available.`,
+                        ),
                     );
+                    if (patientCounts.matched !== 1) {
+                        throw new Error(
+                            `Patient ${parsed.patientId} was not found.`,
+                        );
+                    }
+                } catch (error) {
+                    await Promise.allSettled(
+                        assigned.map((staffId) =>
+                            this.updateMany(
+                                "staff",
+                                {
+                                    staffId,
+                                    currentAssignment: parsed.patientId,
+                                },
+                                {
+                                    $set: {
+                                        available: true,
+                                        currentAssignment: null,
+                                        updatedAt: mongoDate(
+                                            new Date().toISOString(),
+                                        ),
+                                    },
+                                },
+                            ),
+                        ),
+                    );
+                    throw error;
                 }
-                assigned.push(staffId);
-            }
 
-            const patientCounts = updateCounts(
-                await this.updateMany(
-                    "patients",
-                    { patientId: parsed.patientId },
-                    {
-                        $set: {
-                            assignedStaffIds: parsed.staffIds,
-                            updatedAt: mongoDate(new Date().toISOString()),
-                        },
-                    },
-                ),
-            );
-            if (patientCounts.matched !== 1) {
-                throw new Error(`Patient ${parsed.patientId} was not found.`);
-            }
-        } catch (error) {
-            await Promise.allSettled(
-                assigned.map((staffId) =>
-                    this.updateMany(
-                        "staff",
-                        {
-                            staffId,
-                            currentAssignment: parsed.patientId,
-                        },
-                        {
-                            $set: {
-                                available: true,
-                                currentAssignment: null,
-                                updatedAt: mongoDate(new Date().toISOString()),
-                            },
-                        },
-                    ),
-                ),
-            );
-            throw error;
-        }
-
-        return {
-            status: "assigned",
-            patientId: parsed.patientId,
-            staffIds: parsed.staffIds,
-        };
+                span.setAttributes({
+                    "rapid_handoff.assignment_status": "assigned",
+                });
+                return {
+                    status: "assigned",
+                    patientId: parsed.patientId,
+                    staffIds: parsed.staffIds,
+                };
+            },
+        );
     }
 
     async updateSupplyInventory(input: UpdateSupplyInventoryInput) {
@@ -554,6 +652,17 @@ export class MongoErMcpAdapter implements MongoErRepository {
             filter,
             update,
             ...(upsert ? { upsert: true } : {}),
+        });
+    }
+
+    private insertMany(
+        collection: string,
+        documents: Record<string, unknown>[],
+    ): Promise<unknown> {
+        return this.client.callTool("insert-many", {
+            database: this.database,
+            collection,
+            documents,
         });
     }
 }

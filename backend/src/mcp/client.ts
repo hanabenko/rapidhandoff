@@ -78,9 +78,17 @@ export class RemoteMcpClient {
             version: "1.0.0",
         });
 
-        await client.connect(transport);
         this.transport = transport;
-        this.client = client;
-        return client;
+        try {
+            await client.connect(transport);
+            this.client = client;
+            return client;
+        } catch (error) {
+            await transport.close().catch(() => undefined);
+            if (this.transport === transport) {
+                this.transport = undefined;
+            }
+            throw error;
+        }
     }
 }

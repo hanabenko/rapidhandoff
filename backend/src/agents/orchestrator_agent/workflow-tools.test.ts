@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { AgentTool } from "@google/adk";
 
 import { rootAgent } from "./agent.js";
 import { loadErSnapshot, type MongoErRepository } from "./data.js";
@@ -79,16 +80,20 @@ test("workflow ADK tools invoke the injected MCP-backed repository", async () =>
     assert.deepEqual(calls, ["intake:P-1"]);
 });
 
-test("root orchestrator exposes the MongoDB MCP workflow tools", async () => {
+test("root orchestrator exposes delegated sub-agent tools", async () => {
     const toolNames = (await rootAgent.canonicalTools()).map((tool) => tool.name);
 
     for (const name of [
-        "upsert_patient_intake",
-        "get_available_beds",
-        "assign_patient_to_bed",
-        "get_available_staff",
-        "assign_staff_to_patient",
+        "triage_agent",
+        "bed_management_agent",
+        "staff_coordination_agent",
+        "reporting_agent",
     ]) {
         assert.ok(toolNames.includes(name), `${name} is missing from root agent`);
     }
+
+    assert.equal(
+        rootAgent.tools.every((tool) => tool instanceof AgentTool),
+        true,
+    );
 });

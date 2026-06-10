@@ -3,5 +3,8 @@ node_modules/
 .pnpm-store/
 .corepack/
 dist/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 .env
