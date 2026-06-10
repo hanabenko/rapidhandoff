@@ -6,7 +6,6 @@ import {
     assignPatientToBedTool,
     assignStaffToPatientTool,
     getAvailableBedsTool,
-    getAvailableStaffTool,
     intakePatientTool,
 } from "./actions.js";
 import {
@@ -17,6 +16,7 @@ import {
     recommendStaffingTool,
 } from "./tools.js";
 import { triageAgent } from "../triage_agent/agent.js";
+import { staffAgent } from "../staff_agent/agent.js";
 
 const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
 
@@ -73,12 +73,11 @@ Call assign_patient_to_bed with the first bed from the results.
 
 ### Step 3 — Staff Assignment
 
-Call get_available_staff with the appropriate roles:
-- ESI 1–2: roles ["physician", "nurse"]
-- ESI 3: roles ["nurse"] — also try physician if available
-- ESI 4–5: roles ["nurse", "tech"]
+Call er_staff_coordinator with the patient's ID, ESI level, triage level, name, and chief complaint.
+The staff coordinator will query available staff and return a recommendation:
+recommendedStaff (list of {staffId, name, role}), coverageLevel, and escalationNeeded.
 
-For each staff member selected, call assign_staff_to_patient.
+For each staff member in recommendedStaff, call assign_staff_to_patient with their staffId and the patientId.
 
 ### Step 4 — Intake Summary
 
@@ -109,11 +108,12 @@ Report back in this format:
         generateShiftBriefingTool,
         // Triage sub-agent (ESI assessment)
         new AgentTool({ agent: triageAgent }),
+        // Staff coordination sub-agent (queries + recommends)
+        new AgentTool({ agent: staffAgent }),
         // Intake action tools
         intakePatientTool,
         getAvailableBedsTool,
         assignPatientToBedTool,
-        getAvailableStaffTool,
         assignStaffToPatientTool,
     ],
 });

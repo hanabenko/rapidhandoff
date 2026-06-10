@@ -10,6 +10,7 @@
         "start": "node dist/server.js",
         "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts",
         "test:triage": "GOOGLE_GENAI_USE_VERTEXAI=TRUE tsx --test backend/src/agents/triage_agent/scenarios.test.ts",
+        "test:staff": "GOOGLE_GENAI_USE_VERTEXAI=TRUE tsx --test backend/src/agents/staff_agent/scenarios.test.ts",
         "typecheck": "tsc --noEmit"
     },
     "keywords": [],
