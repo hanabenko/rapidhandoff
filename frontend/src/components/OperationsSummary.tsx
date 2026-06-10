@@ -30,7 +30,7 @@ export function OperationsSummary({
             {isSubmitting && (
                 <div className="state-card loading-state">
                     <span className="loading-dot" />
-                    Multi-agent workflow is evaluating triage, beds, and staff.
+                    Evaluating triage, beds, and staff.
                 </div>
             )}
 
@@ -92,16 +92,11 @@ export function OperationsSummary({
                         <article className="decision-card">
                             <span>Wait estimate</span>
                             <strong>
-                                {
-                                    workflow.bedAssignment
-                                        .estimatedWaitMinutes
-                                }{" "}
+                                {workflow.bedAssignment.estimatedWaitMinutes}{" "}
                                 min
                             </strong>
                             <small>
-                                {titleCase(
-                                    workflow.triage.routingPriority,
-                                )}
+                                {titleCase(workflow.triage.routingPriority)}
                             </small>
                         </article>
                     </div>

@@ -318,3 +318,35 @@ test("delegated workflow invokes specialized agents and passes outputs forward",
         setWorkflowSpanRunnerForTests(undefined);
     }
 });
+
+test("delegated workflow surfaces ADK model errors from sub-agents", async () => {
+    const failingTriageAgent = createTriageAgent({
+        beforeModelCallback: () => ({
+            errorCode: "UNKNOWN_ERROR",
+            errorMessage: "Could not load the default credentials.",
+        }),
+    });
+
+    await assert.rejects(
+        runDelegatedErWorkflow(
+            {
+                query: "Create intake and coordinate the ER workflow.",
+                context: {
+                    patientId: "P-AUTH-1",
+                    chiefComplaint: "Demo concern",
+                    assignedByStaffId: "CHARGE-1",
+                },
+            },
+            {
+                repository: repositoryStub(),
+                agents: {
+                    triage: {
+                        agent: failingTriageAgent,
+                        inputSchema: undefined as never,
+                    },
+                },
+            },
+        ),
+        /triage_agent model request failed: Could not load the default credentials/,
+    );
+});

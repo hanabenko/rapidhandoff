@@ -58,7 +58,9 @@ export function getMongoMcpConfig(
                 env.MONGODB_URI,
             ),
             MDB_MCP_READ_ONLY: env.MDB_MCP_READ_ONLY ?? "false",
-            MDB_MCP_INDEX_CHECK: env.MDB_MCP_INDEX_CHECK ?? "true",
+            // Dashboard snapshots intentionally perform bounded collection
+            // reads, which MongoDB reports as COLLSCAN even with ID indexes.
+            MDB_MCP_INDEX_CHECK: env.MDB_MCP_INDEX_CHECK ?? "false",
             MDB_MCP_LOGGERS: env.MDB_MCP_LOGGERS ?? "stderr",
         },
     };

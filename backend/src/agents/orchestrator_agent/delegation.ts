@@ -174,6 +174,7 @@ async function runStructuredAgent<TInput, TOutput>(
     });
 
     let responseText = "";
+    let agentError: { code?: string; message?: string } | undefined;
     for await (const event of runner.runEphemeral({
         userId,
         newMessage: {
@@ -181,18 +182,43 @@ async function runStructuredAgent<TInput, TOutput>(
             parts: [{ text: JSON.stringify(input) }],
         },
     })) {
-        const text = stringifyContent(event as Event);
-        if (text && (isFinalResponse(event as Event) || !responseText)) {
+        const adkEvent = event as Event;
+        if (adkEvent.errorCode || adkEvent.errorMessage) {
+            agentError = {
+                code: adkEvent.errorCode,
+                message: adkEvent.errorMessage,
+            };
+        }
+
+        const text = stringifyContent(adkEvent);
+        if (text && (isFinalResponse(adkEvent) || !responseText)) {
             responseText = text;
         }
+    }
+
+    if (agentError) {
+        const detail =
+            agentError.message ??
+            agentError.code ??
+            "The model request failed without an error message.";
+        throw new Error(`${agent.name} model request failed: ${detail}`);
     }
 
     if (!responseText) {
         throw new Error(`${agent.name} completed without a structured response.`);
     }
 
+    let output: TOutput;
+    try {
+        output = JSON.parse(responseText) as TOutput;
+    } catch {
+        throw new Error(
+            `${agent.name} returned an invalid structured response.`,
+        );
+    }
+
     return {
-        output: JSON.parse(responseText) as TOutput,
+        output,
         responseText,
     };
 }

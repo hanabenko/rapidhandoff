@@ -51,8 +51,10 @@ npx -y @arizeai/phoenix-mcp@latest --baseUrl "$PHOENIX_BASE_URL" --apiKey "$PHOE
 ```
 
 The MongoDB subprocess receives `MDB_MCP_CONNECTION_STRING` from
-`MONGODB_URI`. `MDB_MCP_READ_ONLY` and `MDB_MCP_INDEX_CHECK` remain optional
-server settings.
+`MONGODB_URI`. `MDB_MCP_READ_ONLY` and `MDB_MCP_INDEX_CHECK` remain optional.
+Keep `MDB_MCP_INDEX_CHECK=false` when using the operations dashboard because
+its bounded whole-collection snapshots are intentionally reported as
+`COLLSCAN` query plans.
 
 Phoenix/Arize OTLP tracing, if using the tracing SDK path:
 

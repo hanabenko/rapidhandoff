@@ -1,31 +1,56 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+    fetchBackendHealth,
     fetchOperationsStatus,
     submitPatientIntake,
 } from "./api";
 import { IntakeForm } from "./components/IntakeForm";
+import { InternalOperations } from "./components/InternalOperations";
 import { OperationsSummary } from "./components/OperationsSummary";
-import { StatusView } from "./components/StatusView";
-import type {
-    OperationsStatus,
-    OrchestrateResponse,
-    Severity,
-} from "./types";
+import type { OperationsStatus, OrchestrateResponse, Severity } from "./types";
+
+type DashboardView = "intake" | "operations";
+type BackendState = "checking" | "online" | "offline";
+
+const latestResultKey = "rapid-handoff.latest-result";
+
+function loadLatestResult(): OrchestrateResponse | undefined {
+    try {
+        const stored = sessionStorage.getItem(latestResultKey);
+        return stored ? (JSON.parse(stored) as OrchestrateResponse) : undefined;
+    } catch {
+        return undefined;
+    }
+}
 
 export default function App() {
-    const [result, setResult] = useState<OrchestrateResponse>();
+    const [view, setView] = useState<DashboardView>("intake");
+    const [result, setResult] =
+        useState<OrchestrateResponse | undefined>(loadLatestResult);
     const [submitError, setSubmitError] = useState<string>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [status, setStatus] = useState<OperationsStatus>();
     const [statusError, setStatusError] = useState<string>();
     const [isStatusLoading, setIsStatusLoading] = useState(false);
+    const [backendState, setBackendState] =
+        useState<BackendState>("checking");
+
+    const checkBackendHealth = useCallback(async () => {
+        try {
+            const health = await fetchBackendHealth();
+            setBackendState(health.ok ? "online" : "offline");
+        } catch {
+            setBackendState("offline");
+        }
+    }, []);
 
     const refreshStatus = useCallback(async () => {
         setIsStatusLoading(true);
         setStatusError(undefined);
         try {
             setStatus(await fetchOperationsStatus());
+            setBackendState("online");
         } catch (error) {
             setStatusError(
                 error instanceof Error
@@ -38,8 +63,9 @@ export default function App() {
     }, []);
 
     useEffect(() => {
+        void checkBackendHealth();
         void refreshStatus();
-    }, [refreshStatus]);
+    }, [checkBackendHealth, refreshStatus]);
 
     async function handleIntake(input: {
         patientId: string;
@@ -50,11 +76,17 @@ export default function App() {
     }) {
         setIsSubmitting(true);
         setSubmitError(undefined);
-        setResult(undefined);
         try {
-            setResult(await submitPatientIntake(input));
+            const nextResult = await submitPatientIntake(input);
+            setResult(nextResult);
+            sessionStorage.setItem(
+                latestResultKey,
+                JSON.stringify(nextResult),
+            );
+            setBackendState("online");
             await refreshStatus();
         } catch (error) {
+            void checkBackendHealth();
             setSubmitError(
                 error instanceof Error
                     ? error.message
@@ -75,9 +107,16 @@ export default function App() {
                         <span>Emergency operations console</span>
                     </div>
                 </div>
-                <div className="system-state">
+                <div
+                    className={`system-state ${backendState}`}
+                    title="Backend API health"
+                >
                     <span className="live-dot" />
-                    Multi-agent workflow ready
+                    {backendState === "checking"
+                        ? "Checking backend"
+                        : backendState === "online"
+                          ? "Backend connected"
+                          : "Backend unavailable"}
                 </div>
             </header>
 
@@ -91,24 +130,47 @@ export default function App() {
                 </p>
             </section>
 
-            <div className="workflow-grid">
-                <IntakeForm
-                    isSubmitting={isSubmitting}
-                    onSubmit={handleIntake}
-                />
-                <OperationsSummary
-                    result={result}
-                    error={submitError}
-                    isSubmitting={isSubmitting}
-                />
-            </div>
+            <nav className="view-tabs" aria-label="Dashboard views">
+                <button
+                    type="button"
+                    className={view === "intake" ? "active" : ""}
+                    onClick={() => setView("intake")}
+                >
+                    Receptionist Intake
+                </button>
+                <button
+                    type="button"
+                    className={view === "operations" ? "active" : ""}
+                    onClick={() => setView("operations")}
+                >
+                    Internal Operations
+                </button>
+            </nav>
 
-            <StatusView
-                status={status}
-                isLoading={isStatusLoading}
-                error={statusError}
-                onRefresh={() => void refreshStatus()}
-            />
+            {view === "intake" ? (
+                <div className="workflow-grid">
+                    <IntakeForm
+                        isSubmitting={isSubmitting}
+                        onSubmit={handleIntake}
+                    />
+                    <OperationsSummary
+                        result={result}
+                        error={submitError}
+                        isSubmitting={isSubmitting}
+                    />
+                </div>
+            ) : (
+                <InternalOperations
+                    status={status}
+                    latestResult={result}
+                    isLoading={isStatusLoading}
+                    error={statusError}
+                    onRefresh={() => {
+                        void checkBackendHealth();
+                        void refreshStatus();
+                    }}
+                />
+            )}
         </main>
     );
 }

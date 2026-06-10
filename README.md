@@ -17,6 +17,12 @@ to tools for census, bottlenecks, staffing, bed capacity, and shift briefings.
 4. Start the ADK development UI with `pnpm agent:dev`.
 
 No Gemini API key is used. `GOOGLE_GENAI_USE_VERTEXAI=TRUE` selects Vertex AI.
+The backend process must be restarted after authenticating. You can verify the
+credential before submitting an intake with:
+
+```bash
+gcloud auth application-default print-access-token
+```
 
 ## Node.js backend
 
@@ -46,23 +52,27 @@ See [docs/cloud-run.md](docs/cloud-run.md) for the staged Cloud Run deployment.
 
 ## Frontend MVP
 
-The React/Vite demo UI lives in `frontend/`. It includes the receptionist
-intake form, delegated workflow summary, and a read-only bed/staff status view.
+The React/Vite demo UI lives in `frontend/`. It has separate Receptionist
+Intake and Internal Operations views. The internal view shows the MCP-backed
+active queue, bed/staff status, and the latest delegated workflow result from
+the current browser session.
 
-Set the allowed local frontend origin in the root `.env`:
+Copy both environment examples:
 
-```bash
-FRONTEND_ORIGIN=http://localhost:5173
+```powershell
+Copy-Item .env.example .env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
-Copy `frontend/.env.example` to `frontend/.env` when the backend URL differs
-from the default:
+The default local setup uses Vite's `/api` proxy:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:8080
 ```
 
-Run the backend and frontend in separate terminals:
+The backend listens on port `8080`; the frontend listens on port `5173`. Run
+them in separate terminals:
 
 ```bash
 corepack pnpm dev
@@ -73,8 +83,27 @@ corepack pnpm frontend:dev
 ```
 
 Open `http://localhost:5173`. The intake form sends structured workflow input
-to `POST /agent/orchestrate`; after completion, the page refreshes
-`GET /operations/status` to show current MongoDB-backed bed and staff state.
+through the Vite proxy to `POST /agent/orchestrate`. The backend health badge
+shows whether `GET /health` is reachable, and the Internal Operations tab reads
+the current queue, beds, and staff from `GET /operations/status`.
+
+For a direct browser-to-backend configuration, set
+`VITE_API_BASE_URL=http://localhost:8080`. The root `FRONTEND_ORIGIN` accepts a
+comma-separated allowlist and defaults to the local Vite origins:
+
+```bash
+FRONTEND_ORIGIN=http://localhost:5173,http://127.0.0.1:5173
+```
+
+If the UI reports that the backend is unavailable, confirm
+`http://localhost:8080/health` returns `{"ok":true}` and that no other process
+is using ports `8080` or `5173`.
+
+Keep `MDB_MCP_INDEX_CHECK=false` for the demo dashboard. Its MCP-backed
+operations snapshot performs bounded reads across the complete patient, bed,
+staff, and event collections, so MongoDB correctly reports those reads as
+`COLLSCAN`. Enabling the MCP index check rejects those snapshots before the
+dashboard or intake workflow can complete.
 
 Frontend validation:
 

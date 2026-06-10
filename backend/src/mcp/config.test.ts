@@ -16,7 +16,7 @@ test("MongoDB MCP defaults to a local npx stdio server", () => {
             MDB_MCP_CONNECTION_STRING:
                 "mongodb://localhost:27017/rapid_handoff",
             MDB_MCP_READ_ONLY: "false",
-            MDB_MCP_INDEX_CHECK: "true",
+            MDB_MCP_INDEX_CHECK: "false",
             MDB_MCP_LOGGERS: "stderr",
         },
     });
