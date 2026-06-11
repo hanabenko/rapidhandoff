@@ -6,6 +6,7 @@ import {
     assignPatientToBedTool,
     assignStaffToPatientTool,
     getAvailableBedsTool,
+    getAvailableStaffTool,
     getWaitingPatientsTool,
     intakePatientTool,
     markBedCleanedTool,
@@ -136,5 +137,6 @@ If asked to page a nurse for an existing patient:
         assignStaffToPatientTool,
         markBedCleanedTool,
         getWaitingPatientsTool,
+        getAvailableStaffTool,
     ],
 });
