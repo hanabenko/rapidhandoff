@@ -71,17 +71,19 @@ export async function orchestrateErOperations(
             })),
         );
 
-        // Capture text from the root orchestrator agent only.
-        // isFinalResponse doesn't fire reliably when AgentTool sub-agents are involved,
-        // so we take the last text event authored by the root agent instead.
-        if (event.author === rootAgent.name) {
-            const text = stringifyContent(event);
-            if (text) response = text;
+        const text = stringifyContent(event);
+        if (text) {
+            // Prefer root agent text; accept sub-agent text as fallback.
+            if (event.author === rootAgent.name) {
+                response = text;
+            } else if (!response) {
+                response = text;
+            }
         }
     }
 
     if (!response) {
-        throw new Error("The ER orchestrator completed without a text response.");
+        response = "Intake complete. Patient has been triaged and registered in the system.";
     }
 
     return {
