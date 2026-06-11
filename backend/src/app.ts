@@ -66,7 +66,7 @@ export function createApp() {
 
     app.disable("x-powered-by");
     app.use(express.json({ limit: "64kb" }));
-    app.use(express.static(path.join(__dirname, "../../frontend")));
+    app.use(express.static(path.join(__dirname, "../frontend")));
 
     app.get("/", (_request, response) => {
         response.json({
