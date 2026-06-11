@@ -15,24 +15,42 @@ export type TriageLevel =
 
 export interface Patient {
     patientId: string;
+    name?: string;
+    age?: number;
+    chiefComplaint?: string;
     triageLevel: TriageLevel;
     status: PatientStatus;
     arrivalTime: Date;
+    recommendedBedType?: string;
+    carePathway?: string;
+    vitals?: {
+        heartRate?: number | null;
+        systolicBP?: number | null;
+        diastolicBP?: number | null;
+        oxygenSat?: number | null;
+        temperatureF?: number | null;
+    };
 }
 
 export interface Bed {
     bedId: string;
+    room?: string;
     type: string;
     status: "occupied" | "available";
     needsCleaning: boolean;
+    occupiedByPatientId?: string | null;
+    hasMonitor?: boolean;
 }
 
 export interface StaffMember {
     staffId: string;
+    name?: string;
     role: "physician" | "nurse" | "charge_nurse" | "paramedic" | "tech";
     available: boolean;
     currentAssignment: string | null;
     shift: "day" | "evening" | "night";
+    shiftStartedAt?: Date;
+    canPage?: boolean;
 }
 
 export interface ErEvent {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rapid Handoff · Patient Intake</title>
+  <title>Check In</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -37,6 +37,7 @@
       display: flex;
       align-items: baseline;
       gap: 12px;
+      flex-wrap: wrap;
     }
     header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
     header h1 span { color: var(--accent); }
@@ -50,6 +51,13 @@
       padding: 3px 8px;
       border-radius: 999px;
     }
+    header .intro {
+      width: 100%;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-top: 2px;
+    }
 
     .card {
       max-width: 760px;
@@ -60,16 +68,32 @@
       padding: 24px;
     }
 
+    .section + .section {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border);
+    }
+
     .section-label {
       font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .section-copy {
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.55;
       margin-bottom: 14px;
     }
 
-    .row { display: flex; gap: 14px; }
+    .row {
+      display: flex;
+      gap: 14px;
+    }
     .row .field { flex: 1; }
 
     .field { margin-bottom: 16px; }
@@ -95,14 +119,18 @@
       font-family: inherit;
     }
     .field input:focus,
-    .field textarea:focus {
+    .field textarea:focus,
+    .field select:focus {
       border-color: var(--accent);
     }
     .field input.error,
     .field textarea.error {
       border-color: var(--red);
     }
-    .field textarea { resize: vertical; min-height: 76px; }
+    .field textarea {
+      resize: vertical;
+      min-height: 92px;
+    }
     .field .hint {
       font-size: 0.72rem;
       color: var(--red);
@@ -111,18 +139,23 @@
     }
     .field.invalid .hint { display: block; }
 
-    .vitals-grid {
+    .choices {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 14px;
     }
-    .bp-pair { display: flex; gap: 6px; align-items: flex-end; }
-    .bp-pair input { min-width: 0; }
-    .bp-sep {
-      font-size: 1.2rem;
+    .choice {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 12px;
+      background: rgba(255,255,255,0.01);
+    }
+    .choice small {
+      display: block;
+      margin-top: 6px;
       color: var(--muted);
-      padding-bottom: 8px;
-      flex-shrink: 0;
+      font-size: 0.72rem;
+      line-height: 1.45;
     }
 
     .submit-btn {
@@ -141,7 +174,6 @@
     .submit-btn:hover:not(:disabled) { opacity: 0.88; }
     .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    /* Loading */
     .loading {
       display: none;
       align-items: center;
@@ -155,7 +187,8 @@
     }
     .loading.visible { display: flex; }
     .spinner {
-      width: 22px; height: 22px;
+      width: 22px;
+      height: 22px;
       border: 3px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -164,9 +197,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading p { font-size: 0.9rem; color: var(--muted); }
-    .loading p strong { color: var(--text); }
 
-    /* Error banner */
     .error-banner {
       display: none;
       max-width: 760px;
@@ -180,7 +211,6 @@
     }
     .error-banner.visible { display: block; }
 
-    /* Result card */
     .result {
       display: none;
       max-width: 760px;
@@ -188,33 +218,21 @@
       background: var(--surface);
       border-radius: var(--radius);
       overflow: hidden;
+      border: 1px solid var(--border);
     }
     .result.visible { display: block; }
 
     .result-header {
       padding: 18px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
       border-bottom: 1px solid var(--border);
     }
-    .esi-badge {
-      font-size: 1.5rem;
-      font-weight: 800;
-      width: 52px; height: 52px;
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      color: #fff;
+    .result-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .result-header p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
     }
-    .esi-1 { background: var(--esi-1); border: 2px solid #fca5a5; }
-    .esi-2 { background: var(--esi-2); border: 2px solid #fdba74; }
-    .esi-3 { background: var(--esi-3); border: 2px solid #fde047; color: #1a1a1a; }
-    .esi-4 { background: var(--esi-4); border: 2px solid #86efac; color: #1a1a1a; }
-    .esi-5 { background: var(--esi-5); border: 2px solid #93c5fd; }
-
-    .result-title h2 { font-size: 1.1rem; font-weight: 700; }
-    .result-title p { font-size: 0.82rem; color: var(--muted); margin-top: 3px; }
 
     .result-body { padding: 20px 24px; }
     .result-row {
@@ -224,26 +242,25 @@
       border-bottom: 1px solid var(--border);
       font-size: 0.88rem;
     }
-    .result-row:last-child { border-bottom: none; }
-    .result-row .label {
+    .result-row:last-of-type { border-bottom: none; }
+    .label {
       width: 130px;
       flex-shrink: 0;
       color: var(--muted);
       font-weight: 500;
     }
-    .result-row .value { color: var(--text); line-height: 1.5; }
-
-    .escalation { color: #fca5a5 !important; }
-
-    .result-raw {
-      margin: 16px 0 0;
+    .value {
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .result-note {
+      margin-top: 16px;
       padding: 14px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 7px;
       font-size: 0.82rem;
       color: var(--muted);
-      white-space: pre-wrap;
       line-height: 1.6;
     }
 
@@ -264,8 +281,10 @@
     .reset-btn:hover { border-color: var(--accent); color: var(--text); }
 
     @media (max-width: 600px) {
-      .vitals-grid { grid-template-columns: 1fr 1fr; }
       .row { flex-direction: column; }
+      .choices { grid-template-columns: 1fr; }
+      .result-row { flex-direction: column; gap: 4px; }
+      .label { width: auto; }
     }
   </style>
 </head>
@@ -273,104 +292,150 @@
 
   <header>
     <h1>Rapid <span>Handoff</span></h1>
-    <span class="tag">Patient Intake</span>
+    <span class="tag">Check In</span>
+    <p class="intro">Tell us what is going on in your own words. Use what you know at home or right now. You do not need blood pressure or other equipment readings to complete this form.</p>
   </header>
 
   <div class="card" id="form-card">
-    <div class="section-label">Patient Information</div>
-    <div class="row">
-      <div class="field" id="field-name">
-        <label for="name">Full Name</label>
-        <input type="text" id="name" placeholder="Jane Smith" autocomplete="off" />
-        <div class="hint">Required</div>
-      </div>
-      <div class="field" id="field-age" style="max-width:120px">
-        <label for="age">Age</label>
-        <input type="number" id="age" placeholder="42" min="0" max="150" />
-        <div class="hint">Required</div>
-      </div>
-    </div>
-
-    <div class="field" id="field-complaint">
-      <label for="complaint">Chief Complaint</label>
-      <textarea id="complaint" placeholder="Describe the primary reason for this visit…"></textarea>
-      <div class="hint">Required</div>
-    </div>
-
-    <div class="section-label" style="margin-top:8px">Vitals</div>
-    <div class="vitals-grid">
-      <div class="field">
-        <label for="hr">Heart Rate <small>(bpm)</small></label>
-        <input type="number" id="hr" placeholder="80" min="0" max="300" />
-      </div>
-      <div class="field">
-        <label>Blood Pressure <small>(mmHg)</small></label>
-        <div class="bp-pair">
-          <input type="number" id="bp-sys" placeholder="120" min="0" max="300" />
-          <span class="bp-sep">/</span>
-          <input type="number" id="bp-dia" placeholder="80" min="0" max="200" />
+    <div class="section">
+      <div class="section-label">Basic Information</div>
+      <p class="section-copy">We only need a few details to get you into the right line quickly.</p>
+      <div class="row">
+        <div class="field" id="field-name">
+          <label for="name">Full name</label>
+          <input type="text" id="name" placeholder="Jane Smith" autocomplete="off" />
+          <div class="hint">Please enter a name.</div>
+        </div>
+        <div class="field" id="field-age" style="max-width:120px">
+          <label for="age">Age</label>
+          <input type="number" id="age" placeholder="42" min="0" max="150" />
+          <div class="hint">Please enter an age.</div>
         </div>
       </div>
-      <div class="field">
-        <label for="spo2">SpO₂ <small>(%)</small></label>
-        <input type="number" id="spo2" placeholder="98" min="0" max="100" />
+
+      <div class="field" id="field-complaint">
+        <label for="complaint">What brings you in today?</label>
+        <textarea id="complaint" placeholder="Describe what is bothering you, where it hurts, and anything that feels unusual."></textarea>
+        <div class="hint">Please tell us why you are here.</div>
       </div>
-      <div class="field">
-        <label for="temp">Temp <small>(°F)</small></label>
-        <input type="number" id="temp" placeholder="98.6" step="0.1" min="80" max="115" />
+    </div>
+
+    <div class="section">
+      <div class="section-label">What You Know Right Now</div>
+      <p class="section-copy">These are patient-friendly questions that do not require staff equipment.</p>
+
+      <div class="row">
+        <div class="field">
+          <label for="started">When did this start?</label>
+          <select id="started">
+            <option value="">Choose one</option>
+            <option value="within the last hour">Within the last hour</option>
+            <option value="today">Today</option>
+            <option value="within the last few days">Within the last few days</option>
+            <option value="more than a week ago">More than a week ago</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pain">Pain level</label>
+          <select id="pain">
+            <option value="">Choose one</option>
+            <option value="0 out of 10">0 out of 10</option>
+            <option value="1 to 3 out of 10">1 to 3 out of 10</option>
+            <option value="4 to 6 out of 10">4 to 6 out of 10</option>
+            <option value="7 to 8 out of 10">7 to 8 out of 10</option>
+            <option value="9 to 10 out of 10">9 to 10 out of 10</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="choices">
+        <div class="choice field">
+          <label for="breathing">Trouble breathing?</label>
+          <select id="breathing">
+            <option value="">Choose one</option>
+            <option value="yes, severe trouble breathing">Yes, severe</option>
+            <option value="yes, mild trouble breathing">Yes, mild</option>
+            <option value="no trouble breathing">No</option>
+          </select>
+          <small>Include shortness of breath or breathing that feels harder than normal.</small>
+        </div>
+        <div class="choice field">
+          <label for="chest-pain">Chest pain or pressure?</label>
+          <select id="chest-pain">
+            <option value="">Choose one</option>
+            <option value="yes, chest pain or pressure now">Yes</option>
+            <option value="no chest pain or pressure">No</option>
+          </select>
+          <small>Use this for tightness, squeezing, or pressure in the chest.</small>
+        </div>
+        <div class="choice field">
+          <label for="bleeding">Heavy bleeding?</label>
+          <select id="bleeding">
+            <option value="">Choose one</option>
+            <option value="yes, heavy bleeding">Yes</option>
+            <option value="no heavy bleeding">No</option>
+          </select>
+          <small>Choose yes if blood is soaking through clothes, bandages, or will not stop.</small>
+        </div>
+        <div class="choice field">
+          <label for="confusion">Fainted, confused, or very hard to wake?</label>
+          <select id="confusion">
+            <option value="">Choose one</option>
+            <option value="yes, fainting or confusion">Yes</option>
+            <option value="no fainting or confusion">No</option>
+          </select>
+          <small>Choose yes for fainting, passing out, or sudden confusion.</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="fever">Fever at home, if you checked?</label>
+          <input type="text" id="fever" placeholder="Example: 101.4 F, or leave blank" />
+        </div>
+        <div class="field">
+          <label for="notes">Anything else we should know?</label>
+          <input type="text" id="notes" placeholder="Example: pregnant, fell down stairs, cannot keep fluids down" />
+        </div>
       </div>
     </div>
 
     <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
-      Begin Triage
+      Submit check in
     </button>
   </div>
 
   <div class="loading" id="loading">
     <div class="spinner"></div>
-    <p><strong>Processing intake…</strong> The AI triage team is assessing this patient. This may take 20–40 seconds.</p>
+    <p>Submitting your check in. Please wait a moment while we route it to the care team.</p>
   </div>
 
   <div class="error-banner" id="error-banner"></div>
 
   <div class="result" id="result">
     <div class="result-header">
-      <div class="esi-badge" id="esi-badge">–</div>
-      <div class="result-title">
-        <h2 id="result-name">–</h2>
-        <p id="result-subtitle">–</p>
-      </div>
+      <h2 id="result-name">You are checked in</h2>
+      <p id="result-subtitle">A staff member will review your information and call you as soon as possible.</p>
     </div>
     <div class="result-body">
       <div class="result-row">
-        <span class="label">Patient ID</span>
-        <span class="value" id="r-id">–</span>
+        <span class="label">Check-in ID</span>
+        <span class="value" id="r-id">-</span>
       </div>
       <div class="result-row">
-        <span class="label">Triage Level</span>
-        <span class="value" id="r-triage">–</span>
+        <span class="label">Room</span>
+        <span class="value" id="r-bed">Waiting area</span>
       </div>
       <div class="result-row">
-        <span class="label">Clinical Reasoning</span>
-        <span class="value" id="r-reasoning">–</span>
+        <span class="label">Care team</span>
+        <span class="value" id="r-staff">Staff notified</span>
       </div>
       <div class="result-row">
-        <span class="label">Bed Assigned</span>
-        <span class="value" id="r-bed">–</span>
+        <span class="label">Next step</span>
+        <span class="value" id="r-next">Please stay nearby so staff can find you quickly if a room opens.</span>
       </div>
-      <div class="result-row">
-        <span class="label">Staff Assigned</span>
-        <span class="value" id="r-staff">–</span>
-      </div>
-      <div class="result-row" id="r-flags-row">
-        <span class="label">Escalation Flags</span>
-        <span class="value escalation" id="r-flags">–</span>
-      </div>
-      <details style="margin-top:12px">
-        <summary style="font-size:0.78rem;color:var(--muted);cursor:pointer">Full agent response</summary>
-        <div class="result-raw" id="r-raw"></div>
-      </details>
-      <button class="reset-btn" onclick="resetForm()">← Intake another patient</button>
+      <div class="result-note" id="r-flags-note">If your symptoms get worse, tell the front desk right away.</div>
+      <button class="reset-btn" onclick="resetForm()">Start another check in</button>
     </div>
   </div>
 
@@ -382,18 +447,20 @@
         { id: "field-age", input: "age" },
         { id: "field-complaint", input: "complaint" },
       ];
+
       for (const { id, input } of required) {
         const el = document.getElementById(input);
         const wrapper = document.getElementById(id);
         if (!el.value.trim()) {
-          wrapper?.classList.add("invalid");
+          wrapper.classList.add("invalid");
           el.classList.add("error");
           ok = false;
         } else {
-          wrapper?.classList.remove("invalid");
+          wrapper.classList.remove("invalid");
           el.classList.remove("error");
         }
       }
+
       return ok;
     }
 
@@ -401,31 +468,38 @@
       const name = document.getElementById("name").value.trim();
       const age = document.getElementById("age").value.trim();
       const complaint = document.getElementById("complaint").value.trim();
-      const hr = document.getElementById("hr").value.trim();
-      const sys = document.getElementById("bp-sys").value.trim();
-      const dia = document.getElementById("bp-dia").value.trim();
-      const spo2 = document.getElementById("spo2").value.trim();
-      const temp = document.getElementById("temp").value.trim();
+      const started = document.getElementById("started").value;
+      const pain = document.getElementById("pain").value;
+      const breathing = document.getElementById("breathing").value;
+      const chestPain = document.getElementById("chest-pain").value;
+      const bleeding = document.getElementById("bleeding").value;
+      const confusion = document.getElementById("confusion").value;
+      const fever = document.getElementById("fever").value.trim();
+      const notes = document.getElementById("notes").value.trim();
 
-      let vitals = [];
-      if (hr) vitals.push(`HR ${hr} bpm`);
-      if (sys && dia) vitals.push(`BP ${sys}/${dia} mmHg`);
-      if (spo2) vitals.push(`SpO2 ${spo2}%`);
-      if (temp) vitals.push(`temp ${temp}°F`);
+      const details = [];
+      if (started) details.push(`Symptoms started ${started}`);
+      if (pain) details.push(`Pain level reported as ${pain}`);
+      if (breathing) details.push(breathing);
+      if (chestPain) details.push(chestPain);
+      if (bleeding) details.push(bleeding);
+      if (confusion) details.push(confusion);
+      if (fever) details.push(`Home temperature: ${fever}`);
+      if (notes) details.push(`Other important note: ${notes}`);
 
-      const vitalsStr = vitals.length
-        ? ` Vitals: ${vitals.join(", ")}.`
-        : " Vitals not recorded.";
+      const detailText = details.length
+        ? ` Self-reported details: ${details.join(". ")}.`
+        : "";
 
-      return `New patient arrival: ${name}, ${age} years old. Chief complaint: ${complaint}.${vitalsStr}`;
+      return `New patient arrival: ${name}, ${age} years old. Chief complaint: ${complaint}.${detailText}`;
     }
 
     function parseResponse(text) {
-      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+      const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
       const get = (label) => {
         for (const line of lines) {
-          const m = line.match(new RegExp(`\\*\\*${label}[:\\*]+\\s*(.+)`, "i"));
-          if (m) return m[1].replace(/\*\*/g, "").trim();
+          const match = line.match(new RegExp(`\\*\\*${label}[:\\*]+\\s*(.+)`, "i"));
+          if (match) return match[1].replace(/\*\*/g, "").trim();
         }
         return null;
       };
@@ -438,51 +512,30 @@
         bed: get("Bed assigned"),
         staff: get("Staff assigned"),
         flags: get("Escalation flags"),
-        esiNumber: (() => {
-          const t = get("Triage level") ?? "";
-          const m = t.match(/ESI\s*(\d)/i);
-          return m ? parseInt(m[1]) : null;
-        })(),
       };
     }
 
-    const ESI_LABELS = {
-      1: "Critical — Immediate intervention",
-      2: "Emergent — High risk, do not wait",
-      3: "Urgent — Stable, multiple resources",
-      4: "Less Urgent — One resource needed",
-      5: "Non-Urgent — Exam only",
-    };
-
     function showResult(rawText, queryName) {
-      const p = parseResponse(rawText);
-      const esi = p.esiNumber;
+      const parsed = parseResponse(rawText);
+      const nextStep =
+        parsed.bed && !parsed.bed.toLowerCase().includes("no bed")
+          ? `Please head to ${parsed.bed}.`
+          : "Please stay in the waiting area until a staff member calls your name.";
+      const flags =
+        parsed.flags && parsed.flags.toLowerCase() !== "none"
+          ? `Staff noted: ${parsed.flags}. If anything changes, tell the front desk right away.`
+          : "If your symptoms get worse, tell the front desk right away.";
 
-      const badge = document.getElementById("esi-badge");
-      badge.textContent = esi ?? "?";
-      badge.className = `esi-badge${esi ? ` esi-${esi}` : ""}`;
-
-      document.getElementById("result-name").textContent = p.patientName || queryName || "Patient";
+      document.getElementById("result-name").textContent =
+        `${parsed.patientName || queryName || "You"} are checked in`;
       document.getElementById("result-subtitle").textContent =
-        esi ? ESI_LABELS[esi] : (p.triageLevel ?? "");
+        "A staff member will review your information and call you as soon as possible.";
+      document.getElementById("r-id").textContent = parsed.patientId || "-";
+      document.getElementById("r-bed").textContent = parsed.bed || "Waiting area";
+      document.getElementById("r-staff").textContent = parsed.staff || "Care team notified";
+      document.getElementById("r-next").textContent = nextStep;
+      document.getElementById("r-flags-note").textContent = flags;
 
-      document.getElementById("r-id").textContent = p.patientId ?? "—";
-      document.getElementById("r-triage").textContent = p.triageLevel ?? "—";
-      document.getElementById("r-reasoning").textContent = p.reasoning ?? "—";
-      document.getElementById("r-bed").textContent = p.bed ?? "—";
-      document.getElementById("r-staff").textContent = p.staff ?? "—";
-
-      const flags = p.flags;
-      const flagsEl = document.getElementById("r-flags");
-      const flagsRow = document.getElementById("r-flags-row");
-      if (flags && flags.toLowerCase() !== "none") {
-        flagsEl.textContent = flags;
-        flagsRow.style.display = "flex";
-      } else {
-        flagsRow.style.display = "none";
-      }
-
-      document.getElementById("r-raw").textContent = rawText;
       document.getElementById("result").classList.add("visible");
       document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -502,11 +555,13 @@
         const res = await fetch("/agent/orchestrate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, userId: "receptionist-ui" }),
+          body: JSON.stringify({
+            query,
+            userId: "check-in-form",
+          }),
         });
 
         const data = await res.json();
-
         if (!res.ok) {
           throw new Error(data.message ?? `Server error ${res.status}`);
         }
@@ -518,17 +573,20 @@
         banner.textContent = `Error: ${err.message}`;
         banner.classList.add("visible");
       } finally {
-        document.getElementById("loading").classList.remove("visible");
         document.getElementById("submit-btn").disabled = false;
+        document.getElementById("loading").classList.remove("visible");
       }
     }
 
     function resetForm() {
-      document.getElementById("result").classList.remove("visible");
+      document.querySelectorAll("input, textarea, select").forEach((el) => {
+        el.value = "";
+        el.classList.remove("error");
+      });
+      document.querySelectorAll(".field.invalid").forEach((el) => el.classList.remove("invalid"));
       document.getElementById("form-card").style.display = "block";
-      document.getElementById("form-card").querySelectorAll("input, textarea").forEach(el => el.value = "");
-      document.getElementById("form-card").querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
-      document.getElementById("form-card").querySelectorAll(".error").forEach(el => el.classList.remove("error"));
+      document.getElementById("result").classList.remove("visible");
+      document.getElementById("error-banner").classList.remove("visible");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   </script>

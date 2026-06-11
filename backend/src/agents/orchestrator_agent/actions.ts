@@ -50,7 +50,7 @@ export const intakePatientTool = new FunctionTool({
     name: "intake_patient",
     description:
         "Register a new patient in the ER system with their triage assessment. " +
-        "Call this after reasoning about the ESI triage level from symptoms and vitals.",
+        "Call this after reasoning about the ESI triage level from symptoms, age, and any available self-reported details.",
     parameters: z.object({
         name: z.string().min(1).max(200).describe("Patient full name"),
         age: z.number().int().min(0).max(150).describe("Patient age in years"),
@@ -66,13 +66,15 @@ export const intakePatientTool = new FunctionTool({
         recommendedBedType: z
             .enum(["trauma", "exam", "observation", "isolation", "pediatric"])
             .describe("Bed type appropriate for this patient's triage level"),
-        vitals: z.object({
-            heartRate: z.number().int().describe("Beats per minute"),
-            systolicBP: z.number().int().describe("Systolic blood pressure mmHg"),
-            diastolicBP: z.number().int().describe("Diastolic blood pressure mmHg"),
-            oxygenSat: z.number().int().min(0).max(100).describe("SpO2 percent"),
-            temperatureF: z.number().describe("Temperature in Fahrenheit"),
-        }),
+        vitals: z
+            .object({
+                heartRate: z.number().int().nullable().optional().describe("Beats per minute when known"),
+                systolicBP: z.number().int().nullable().optional().describe("Systolic blood pressure mmHg when known"),
+                diastolicBP: z.number().int().nullable().optional().describe("Diastolic blood pressure mmHg when known"),
+                oxygenSat: z.number().int().min(0).max(100).nullable().optional().describe("SpO2 percent when known"),
+                temperatureF: z.number().nullable().optional().describe("Temperature in Fahrenheit when known"),
+            })
+            .default({}),
     }),
     execute: async ({ name, age, chiefComplaint, triageLevel, carePathway, recommendedBedType, vitals }) => {
         try {

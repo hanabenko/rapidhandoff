@@ -15,6 +15,20 @@ const rand = (min: number, max: number) =>
     Math.floor(Math.random() * (max - min + 1)) + min;
 
 const pick = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+const pickOne = <T>(arr: T[]) => arr[rand(0, arr.length - 1)];
+
+function randomShiftStart(shift: "day" | "evening" | "night") {
+    const now = new Date();
+    const base = new Date(now);
+    if (shift === "day") base.setHours(7, 0, 0, 0);
+    if (shift === "evening") base.setHours(15, 0, 0, 0);
+    if (shift === "night") base.setHours(23, 0, 0, 0);
+    if (base.getTime() > now.getTime()) {
+        base.setDate(base.getDate() - 1);
+    }
+
+    return new Date(base.getTime() - rand(0, 180) * 60_000);
+}
 
 async function main() {
     await client.connect();
@@ -95,29 +109,46 @@ async function main() {
         };
     });
 
-    const staff = Array.from({ length: 14 }, (_, i) => ({
-        staffId: `S-${String(i + 1).padStart(3, "0")}`,
-        name: pick([
-            "Dr. Elena Morris",
-            "Dr. James Carter",
-            "Dr. Aisha Khan",
-            "Rachel Green",
-            "Miguel Santos",
-            "Tina Brooks",
-            "Sam Wilson",
-            "Jordan Lee",
-            "Morgan Blake",
-            "Priya Nair",
-        ]),
-        role: pick(["physician", "nurse", "charge_nurse", "paramedic", "tech"]),
-        department: "Emergency",
-        available: Math.random() < 0.7,
-        currentAssignment:
-            Math.random() < 0.45 ? pick(patients).patientId : null,
-        shift: pick(["day", "evening", "night"]),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    }));
+    const staff = Array.from({ length: 14 }, (_, i) => {
+        const role = pick([
+            "physician",
+            "nurse",
+            "charge_nurse",
+            "paramedic",
+            "tech",
+        ]);
+        const shift = pick(["day", "evening", "night"]) as
+            | "day"
+            | "evening"
+            | "night";
+        const assignment =
+            Math.random() < 0.45 ? pickOne(patients).patientId : null;
+
+        return {
+            staffId: `S-${String(i + 1).padStart(3, "0")}`,
+            name: pick([
+                "Dr. Elena Morris",
+                "Dr. James Carter",
+                "Dr. Aisha Khan",
+                "Rachel Green",
+                "Miguel Santos",
+                "Tina Brooks",
+                "Sam Wilson",
+                "Jordan Lee",
+                "Morgan Blake",
+                "Priya Nair",
+            ]),
+            role,
+            department: "Emergency",
+            available: Math.random() < 0.7,
+            currentAssignment: assignment,
+            shift,
+            shiftStartedAt: randomShiftStart(shift),
+            canPage: role === "nurse" || role === "charge_nurse",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+    });
 
     const supplies = [
         "Nitrile gloves",
@@ -187,6 +218,7 @@ async function main() {
             "triage_completed",
             "bed_assigned",
             "staff_assigned",
+            "nurse_page",
             "vitals_updated",
             "supply_used",
             "patient_discharged",
