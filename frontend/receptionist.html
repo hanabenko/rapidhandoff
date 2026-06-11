@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapid Handoff - Receptionist</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --surface2: #f0f2f8;
+      --border: #dde2ee;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #2d6be4;
+      --esi-1: #dc2626;
+      --esi-2: #ea580c;
+      --esi-3: #ca8a04;
+      --esi-4: #16a34a;
+      --esi-5: #2563eb;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+
+    .topbar {
+      max-width: 1100px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .brand h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    .brand h1 span { color: var(--accent); }
+    .brand .tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+    .brand-copy {
+      width: 100%;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .clock {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .refresh-note { font-size: 0.72rem; color: var(--muted); }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .offline-bar {
+      display: none;
+      max-width: 1100px;
+      margin: 0 auto 16px;
+      padding: 10px 16px;
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.2);
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      color: #dc2626;
+    }
+    .offline-bar.visible { display: block; }
+
+    .stats-row {
+      max-width: 1100px;
+      margin: 0 auto 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .stat-chip .label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .stat-chip .value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-chip .sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .main-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .panel-header h2 {
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .panel-caption {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .queue-empty,
+    .list-empty {
+      padding: 36px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .queue-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+    .queue-row:last-child { border-bottom: none; }
+    .queue-row:hover { background: var(--surface2); }
+
+    .queue-pos {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+      width: 24px;
+      flex-shrink: 0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .esi-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+    .esi-dot.esi-1 { background: rgba(220,38,38,0.1); color: var(--esi-1); border: 1.5px solid rgba(220,38,38,0.35); }
+    .esi-dot.esi-2 { background: rgba(234,88,12,0.1); color: var(--esi-2); border: 1.5px solid rgba(234,88,12,0.35); }
+    .esi-dot.esi-3 { background: rgba(202,138,4,0.1); color: var(--esi-3); border: 1.5px solid rgba(202,138,4,0.35); }
+    .esi-dot.esi-4 { background: rgba(22,163,74,0.1); color: var(--esi-4); border: 1.5px solid rgba(22,163,74,0.35); }
+    .esi-dot.esi-5 { background: rgba(37,99,235,0.1); color: var(--esi-5); border: 1.5px solid rgba(37,99,235,0.35); }
+
+    .queue-info { flex: 1; min-width: 0; }
+    .queue-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .queue-detail {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+      line-height: 1.45;
+    }
+
+    .queue-right { text-align: right; flex-shrink: 0; }
+    .wait-est { font-size: 0.82rem; font-weight: 600; }
+    .wait-label { font-size: 0.68rem; color: var(--muted); margin-top: 4px; }
+
+    .status-badge,
+    .priority-badge,
+    .severity-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .status-waiting { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
+    .status-in_treatment { background: rgba(22,163,74,0.1); color: #15803d; border-color: rgba(22,163,74,0.25); }
+    .priority-high,
+    .severity-critical { background: rgba(220,38,38,0.1); color: #b91c1c; border-color: rgba(220,38,38,0.25); }
+    .priority-medium,
+    .severity-warning { background: rgba(234,88,12,0.1); color: #c2410c; border-color: rgba(234,88,12,0.25); }
+    .priority-low,
+    .severity-info { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
+
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    .list-item {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .list-title strong {
+      font-size: 0.88rem;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+    .list-detail {
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.5;
+    }
+
+    .bed-bar-wrap { padding: 14px 20px 16px; }
+    .bed-bar-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .bed-bar-track {
+      height: 10px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bed-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+    .bed-bar-fill.full { background: var(--esi-1); }
+    .bed-bar-fill.high { background: var(--esi-2); }
+    .bed-counts {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 7px;
+    }
+
+    .act-btn {
+      flex-shrink: 0;
+      background: rgba(45,107,228,0.08);
+      border: 1px solid rgba(45,107,228,0.25);
+      color: var(--accent);
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.12s, opacity 0.12s;
+      white-space: nowrap;
+    }
+    .act-btn:hover:not(:disabled) { background: rgba(45,107,228,0.15); }
+    .act-btn:disabled { opacity: 0.45; cursor: default; }
+    .act-btn.done {
+      background: rgba(22,163,74,0.1);
+      border-color: rgba(22,163,74,0.3);
+      color: #15803d;
+    }
+    .act-btn.failed {
+      background: rgba(220,38,38,0.1);
+      border-color: rgba(220,38,38,0.25);
+      color: #b91c1c;
+    }
+
+    .action-trace {
+      margin-top: 10px;
+      background: rgba(0,0,0,0.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+    }
+    .action-log-entry {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      font-size: 0.7rem;
+      line-height: 1.5;
+      padding: 2px 0;
+    }
+    .action-log-entry + .action-log-entry { border-top: 1px solid rgba(255,255,255,0.04); }
+    .log-tag {
+      flex-shrink: 0;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .log-text { color: var(--muted); word-break: break-word; }
+    .log-tool .log-tag    { background: rgba(45,107,228,0.1); color: #1e40af; }
+    .log-result .log-tag  { background: rgba(202,138,4,0.1); color: #a16207; }
+    .log-text-ev .log-tag { background: rgba(124,58,237,0.1); color: #6d28d9; }
+    .log-done .log-tag    { background: rgba(22,163,74,0.1); color: #15803d; }
+    .log-error .log-tag   { background: rgba(220,38,38,0.1); color: #b91c1c; }
+    .log-done .log-text, .log-error .log-text { color: var(--text); }
+
+    .rooms-panel {
+      max-width: 1100px;
+      margin: 0 auto 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .rooms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+    .room-card {
+      background: var(--surface);
+      padding: 9px 11px 8px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .room-card.room-available { background: rgba(22,163,74,0.05); }
+    .room-card.room-cleaning  { background: rgba(245,158,11,0.07); }
+    .room-card.room-occupied  { background: rgba(45,107,228,0.06); }
+    .room-card.room-occupied.esi-1 { background: rgba(220,38,38,0.07); }
+    .room-card.room-occupied.esi-2 { background: rgba(234,88,12,0.07); }
+    .room-card.room-occupied.esi-3 { background: rgba(202,138,4,0.06); }
+    .room-card.room-just-assigned {
+      animation: roomFlash 1.4s ease;
+    }
+    @keyframes roomFlash {
+      0%   { background: rgba(45,107,228,0.22); }
+      100% { background: rgba(45,107,228,0.06); }
+    }
+    .room-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .room-id {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .room-type-badge {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .room-status-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .room-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .room-available .room-dot { background: #16a34a; }
+    .room-cleaning  .room-dot { background: #d97706; animation: pulse 1.5s infinite; }
+    .room-occupied  .room-dot { background: var(--accent); }
+    .room-status-text {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .room-available .room-status-text { color: #15803d; }
+    .room-cleaning  .room-status-text { color: #b45309; }
+    .room-occupied  .room-status-text { color: var(--accent); }
+    .room-patient {
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .room-meta {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+      max-width: 380px;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+      pointer-events: auto;
+      animation: toastIn 0.22s ease;
+    }
+    .toast.toast-success { border-left: 3px solid #16a34a; }
+    .toast.toast-info    { border-left: 3px solid var(--accent); }
+    .toast-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .toast-success .toast-title { color: #15803d; }
+    .toast-info    .toast-title { color: var(--accent); }
+    .toast-body {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 720px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .clock { font-size: 1.3rem; }
+      .queue-row { align-items: flex-start; }
+      .rooms-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>Rapid <span>Handoff</span></h1>
+      <span class="tag">Receptionist</span>
+      <p class="brand-copy">Queue, cleaning backlog, nurse paging needs, and shift-length alerts in one place.</p>
+    </div>
+    <div class="topbar-right">
+      <div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="refresh-note"><span class="live-dot"></span>Live refresh every 30 seconds</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="offline-bar" id="offline-bar">Unable to connect to the ER system. Retrying automatically.</div>
+
+  <div class="stats-row">
+    <div class="stat-chip">
+      <div class="label">Waiting</div>
+      <div class="value" id="stat-waiting">-</div>
+      <div class="sub">patients still in queue</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">In Treatment</div>
+      <div class="value" id="stat-treatment">-</div>
+      <div class="sub">actively being seen</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Ready Beds</div>
+      <div class="value" id="stat-beds">-</div>
+      <div class="sub" id="stat-beds-sub">of - total</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Rooms To Clean</div>
+      <div class="value" id="stat-cleaning">-</div>
+      <div class="sub">blocking bed turnover</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Page-Ready Nurses</div>
+      <div class="value" id="stat-page-nurses">-</div>
+      <div class="sub">available now</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Staff On Duty</div>
+      <div class="value" id="stat-staff">-</div>
+      <div class="sub">across the unit</div>
+    </div>
+  </div>
+
+  <div class="rooms-panel" id="rooms-panel">
+    <div class="panel-header">
+      <h2>ER Room Map</h2>
+      <span class="panel-caption" id="rooms-caption">Loading...</span>
+    </div>
+    <div class="rooms-grid" id="rooms-grid"></div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Active Queue</h2>
+        <span id="queue-count" class="panel-caption"></span>
+      </div>
+      <div id="queue-list">
+        <div class="queue-empty">Loading queue...</div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Next Actions</h2>
+          <span class="panel-caption">What needs attention now</span>
+        </div>
+        <div id="next-actions">
+          <div class="list-empty">Loading actions...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Important Alerts</h2>
+          <span class="panel-caption">Critical and time-sensitive issues</span>
+        </div>
+        <div id="alerts-list">
+          <div class="list-empty">Loading alerts...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h2>Bed Capacity</h2></div>
+        <div class="bed-bar-wrap">
+          <div class="bed-bar-label">Occupancy</div>
+          <div class="bed-bar-track">
+            <div class="bed-bar-fill" id="bed-bar" style="width:0%"></div>
+          </div>
+          <div class="bed-counts">
+            <span id="bed-label-occupied">- occupied</span>
+            <span id="bed-label-available">- ready</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    const ESI_NUM = {
+      critical: 1,
+      emergent: 2,
+      urgent: 3,
+      less_urgent: 4,
+      non_urgent: 5,
+    };
+
+    const WAIT_EST = {
+      critical: "Immediate",
+      emergent: "< 15 min",
+      urgent: "30-60 min",
+      less_urgent: "1-2 hrs",
+      non_urgent: "2+ hrs",
+    };
+
+    function waitColor(level) {
+      const colors = {
+        critical: "#dc2626",
+        emergent: "#ea580c",
+        urgent: "#a16207",
+        less_urgent: "#15803d",
+        non_urgent: "#2563eb",
+      };
+      return colors[level] || "var(--text)";
+    }
+
+    function escHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function elapsed(arrivalTime) {
+      const ms = Date.now() - new Date(arrivalTime).getTime();
+      const minutes = Math.max(0, Math.floor(ms / 60000));
+      if (minutes < 1) return "just arrived";
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      const remaining = minutes % 60;
+      return `${hours}h ${remaining}m ago`;
+    }
+
+    function timeStamp(value) {
+      return new Date(value).toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function updateClock() {
+      document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    }
+
+    function renderQueue(patients) {
+      const container = document.getElementById("queue-list");
+      document.getElementById("queue-count").textContent =
+        patients.length ? `${patients.length} active patient${patients.length === 1 ? "" : "s"}` : "No active queue";
+
+      if (!patients.length) {
+        container.innerHTML = '<div class="queue-empty">No patients currently in queue.</div>';
+        return;
+      }
+
+      container.innerHTML = patients.map((patient, index) => {
+        const esi = ESI_NUM[patient.triageLevel] || "?";
+        const statusClass = patient.status === "in_treatment" ? "status-in_treatment" : "status-waiting";
+        const statusLabel = patient.status === "in_treatment" ? "In treatment" : "Waiting";
+        const roomText = patient.room ? `Room ${escHtml(patient.room)}` : "Waiting area";
+        const ageText = patient.age ? `${patient.age} y/o` : "Age not listed";
+
+        return `
+          <div class="queue-row">
+            <div class="queue-pos">${index + 1}</div>
+            <div class="esi-dot esi-${esi}">${esi}</div>
+            <div class="queue-info">
+              <div class="queue-name">${escHtml(patient.name)}</div>
+              <div class="queue-detail">${escHtml(ageText)} · ${roomText} · ${elapsed(patient.arrivalTime)}</div>
+              <div class="queue-detail">${escHtml(patient.chiefComplaint || "No complaint entered")}</div>
+            </div>
+            <div class="queue-right">
+              <div class="wait-est" style="color:${waitColor(patient.triageLevel)}">${WAIT_EST[patient.triageLevel] || "-"}</div>
+              <div class="wait-label"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderStats(stats) {
+      document.getElementById("stat-waiting").textContent = stats.waitingCount;
+      document.getElementById("stat-treatment").textContent = stats.inTreatmentCount;
+      document.getElementById("stat-beds").textContent = stats.bedsAvailable;
+      document.getElementById("stat-beds-sub").textContent = `of ${stats.totalBeds} total`;
+      document.getElementById("stat-cleaning").textContent = stats.bedsAwaitingCleaning;
+      document.getElementById("stat-page-nurses").textContent = stats.pageReadyNurses;
+      document.getElementById("stat-staff").textContent = stats.staffOnDuty;
+
+      const pct = stats.totalBeds > 0
+        ? Math.round((stats.bedsOccupied / stats.totalBeds) * 100)
+        : 0;
+      const bar = document.getElementById("bed-bar");
+      bar.style.width = `${pct}%`;
+      bar.className = `bed-bar-fill${pct >= 90 ? " full" : pct >= 70 ? " high" : ""}`;
+      document.getElementById("bed-label-occupied").textContent = `${stats.bedsOccupied} occupied`;
+      document.getElementById("bed-label-available").textContent = `${stats.bedsAvailable} ready`;
+    }
+
+    function renderList(targetId, items, emptyText, renderer) {
+      const target = document.getElementById(targetId);
+      if (!items.length) {
+        target.innerHTML = `<div class="list-empty">${emptyText}</div>`;
+        return;
+      }
+      target.innerHTML = items.map(renderer).join("");
+    }
+
+    let pendingActions = [];
+
+    function buildActionPrompt(action) {
+      if (action.category === "cleaning") {
+        const bedInfo = action.bedId ? ` (bed ID: ${action.bedId})` : "";
+        return `Clean bed${bedInfo} in room ${action.room || action.bedId || "the ER"}: mark it as cleaned, then check the waiting queue and assign the highest priority waiting patient to this freshly cleaned bed.`;
+      }
+      if (action.category === "paging") {
+        const idInfo = action.patientId ? ` (patient ID: ${action.patientId})` : "";
+        return `Page a nurse for patient ${action.patientName || "this patient"}${idInfo}. ${action.detail}`;
+      }
+      return `${action.title}. ${action.detail || ""}`.trim();
+    }
+
+    function addActionLog(trace, type, tag, text) {
+      trace.style.display = "block";
+      const entry = document.createElement("div");
+      entry.className = `action-log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-tag">${escHtml(tag)}</span><span class="log-text">${escHtml(text)}</span>`;
+      trace.appendChild(entry);
+      trace.scrollTop = trace.scrollHeight;
+    }
+
+    async function handleAction(index) {
+      const action = pendingActions[index];
+      if (!action) return;
+      const btn = document.getElementById(`act-btn-${index}`);
+      const trace = document.getElementById(`action-trace-${index}`);
+      if (!btn || !trace) return;
+
+      btn.disabled = true;
+      btn.textContent = "Working...";
+      trace.innerHTML = "";
+
+      const prompt = buildActionPrompt(action);
+
+      try {
+        const res = await fetch("/agent/orchestrate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: prompt }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "tool_call") {
+                addActionLog(trace, "tool", ev.agent || "agent", `→ ${ev.tool}`);
+              } else if (ev.type === "tool_result_detail") {
+                const preview = ev.text.length > 120 ? ev.text.slice(0, 120) + "…" : ev.text;
+                addActionLog(trace, "result", ev.agent || "result", preview);
+              } else if (ev.type === "text") {
+                addActionLog(trace, "text-ev", ev.agent || "agent", ev.text);
+              } else if (ev.type === "done") {
+                addActionLog(trace, "done", "Done", ev.response || "Action completed.");
+                btn.textContent = "Done";
+                btn.classList.add("done");
+                const category = pendingActions[index]?.category;
+                if (category === "cleaning") {
+                  showToast("Room cleaned + patient assigned", ev.response || "Action completed.");
+                } else if (category === "paging") {
+                  showToast("Nurse paged", ev.response || "Action completed.", "info");
+                }
+                if (pendingActions[index]?.bedId) flashRoom(pendingActions[index].bedId);
+                setTimeout(fetchStatus, 2500);
+              } else if (ev.type === "error") {
+                addActionLog(trace, "error", "Error", ev.message);
+                btn.textContent = "Retry";
+                btn.classList.add("failed");
+                btn.disabled = false;
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        addActionLog(trace, "error", "Error", err.message || "Connection failed");
+        btn.textContent = "Retry";
+        btn.classList.add("failed");
+        btn.disabled = false;
+      }
+    }
+
+    function renderOperations(operations) {
+      const actions = operations.nextActions || [];
+      pendingActions = actions;
+
+      const actionsContainer = document.getElementById("next-actions");
+      if (!actions.length) {
+        actionsContainer.innerHTML = '<div class="list-empty">No urgent next actions right now.</div>';
+      } else {
+        actionsContainer.innerHTML = actions.map((item, i) => `
+          <div class="list-item" id="action-item-${i}">
+            <div class="list-title">
+              <strong>${escHtml(item.title)}</strong>
+              <span class="priority-badge priority-${item.priority || "low"}">${escHtml(item.category || "action")}</span>
+              <button class="act-btn" id="act-btn-${i}" onclick="handleAction(${i})">Handle</button>
+            </div>
+            <div class="list-detail">${escHtml(item.detail || "")}</div>
+            <div class="action-trace" id="action-trace-${i}"></div>
+          </div>`
+        ).join("");
+      }
+
+      renderList(
+        "alerts-list",
+        operations.alerts || [],
+        "No important alerts at the moment.",
+        (item) => `
+          <div class="list-item">
+            <div class="list-title">
+              <strong>${escHtml(item.message)}</strong>
+              <span class="severity-badge severity-${item.severity || "info"}">${escHtml(item.severity || "info")}</span>
+            </div>
+            <div class="list-detail">Updated ${timeStamp(item.timestamp)}</div>
+          </div>`
+      );
+    }
+
+    function titleCase(str) {
+      return str.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    const BED_TYPE_ABBR = { trauma: "T", exam: "E", observation: "OBS", isolation: "ISO", pediatric: "PED" };
+
+    function renderRoomMap(beds) {
+      const grid = document.getElementById("rooms-grid");
+      const caption = document.getElementById("rooms-caption");
+      if (!beds || !beds.length) {
+        grid.innerHTML = '<div class="list-empty" style="grid-column:1/-1">No room data available.</div>';
+        return;
+      }
+      const available = beds.filter(b => !b.needsCleaning && b.status === "available").length;
+      const occupied  = beds.filter(b => b.status === "occupied").length;
+      const cleaning  = beds.filter(b => b.needsCleaning).length;
+      caption.textContent = `${beds.length} rooms · ${available} ready · ${occupied} occupied · ${cleaning} cleaning`;
+
+      grid.innerHTML = beds.map(bed => {
+        let cls = "room-card";
+        let statusText = "available";
+        let bodyHtml = "";
+        const typeAbbr = BED_TYPE_ABBR[bed.type] || bed.type.slice(0, 3).toUpperCase();
+
+        if (bed.needsCleaning) {
+          cls += " room-cleaning";
+          statusText = "cleaning";
+          bodyHtml = `<div class="room-meta" style="color:#b45309">Needs cleaning</div>`;
+        } else if (bed.status === "occupied" && bed.occupiedByPatient) {
+          const esi = ESI_NUM[bed.occupiedByPatient.triageLevel] || "?";
+          cls += ` room-occupied esi-${esi}`;
+          statusText = "occupied";
+          const firstName = (bed.occupiedByPatient.name || "-").split(" ")[0];
+          bodyHtml = `
+            <div class="room-patient">${escHtml(firstName)}</div>
+            <div class="room-meta">ESI ${esi} · ${escHtml(titleCase(bed.occupiedByPatient.triageLevel || ""))}</div>`;
+        } else {
+          cls += " room-available";
+          bodyHtml = `<div class="room-meta" style="color:#15803d">Ready</div>`;
+        }
+
+        return `
+          <div class="${cls}" id="room-${escHtml(bed.bedId)}">
+            <div class="room-header">
+              <span class="room-id">${escHtml(bed.room || bed.bedId)}</span>
+              <span class="room-type-badge">${typeAbbr}</span>
+            </div>
+            <div class="room-status-line">
+              <span class="room-dot"></span>
+              <span class="room-status-text">${statusText}</span>
+            </div>
+            ${bodyHtml}
+          </div>`;
+      }).join("");
+    }
+
+    function showToast(title, body, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `<div class="toast-title">${escHtml(title)}</div><div class="toast-body">${escHtml(body)}</div>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 6000);
+    }
+
+    function flashRoom(bedId) {
+      const card = document.getElementById(`room-${bedId}`);
+      if (card) {
+        card.classList.remove("room-just-assigned");
+        void card.offsetWidth;
+        card.classList.add("room-just-assigned");
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/er-status");
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        document.getElementById("offline-bar").classList.remove("visible");
+        renderQueue(data.waiting || []);
+        renderStats(data.stats || {});
+        renderOperations(data.operations || {});
+        renderRoomMap(data.beds || []);
+      } catch {
+        document.getElementById("offline-bar").classList.add("visible");
+      }
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+    fetchStatus();
+    setInterval(fetchStatus, 30000);
+  </script>
+</body>
+</html>

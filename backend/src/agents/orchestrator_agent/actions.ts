@@ -50,7 +50,7 @@ export const intakePatientTool = new FunctionTool({
     name: "intake_patient",
     description:
         "Register a new patient in the ER system with their triage assessment. " +
-        "Call this after reasoning about the ESI triage level from symptoms and vitals.",
+        "Call this after reasoning about the ESI triage level from symptoms, age, and any available self-reported details.",
     parameters: z.object({
         name: z.string().min(1).max(200).describe("Patient full name"),
         age: z.number().int().min(0).max(150).describe("Patient age in years"),
@@ -66,13 +66,15 @@ export const intakePatientTool = new FunctionTool({
         recommendedBedType: z
             .enum(["trauma", "exam", "observation", "isolation", "pediatric"])
             .describe("Bed type appropriate for this patient's triage level"),
-        vitals: z.object({
-            heartRate: z.number().int().describe("Beats per minute"),
-            systolicBP: z.number().int().describe("Systolic blood pressure mmHg"),
-            diastolicBP: z.number().int().describe("Diastolic blood pressure mmHg"),
-            oxygenSat: z.number().int().min(0).max(100).describe("SpO2 percent"),
-            temperatureF: z.number().describe("Temperature in Fahrenheit"),
-        }),
+        vitals: z
+            .object({
+                heartRate: z.number().int().nullable().optional().describe("Beats per minute when known"),
+                systolicBP: z.number().int().nullable().optional().describe("Systolic blood pressure mmHg when known"),
+                diastolicBP: z.number().int().nullable().optional().describe("Diastolic blood pressure mmHg when known"),
+                oxygenSat: z.number().int().min(0).max(100).nullable().optional().describe("SpO2 percent when known"),
+                temperatureF: z.number().nullable().optional().describe("Temperature in Fahrenheit when known"),
+            })
+            .default({}),
     }),
     execute: async ({ name, age, chiefComplaint, triageLevel, carePathway, recommendedBedType, vitals }) => {
         try {
@@ -300,6 +302,108 @@ export const getAvailableStaffTool = new FunctionTool({
             return {
                 status: "error",
                 message: error instanceof Error ? error.message : "Failed to query staff.",
+            };
+        }
+    },
+});
+
+const TRIAGE_PRIORITY: Record<string, number> = {
+    critical: 1,
+    emergent: 2,
+    urgent: 3,
+    less_urgent: 4,
+    non_urgent: 5,
+};
+
+export const getWaitingPatientsTool = new FunctionTool({
+    name: "get_waiting_patients",
+    description:
+        "Get patients currently waiting for a bed, sorted by triage priority (most critical first). " +
+        "Use after cleaning a bed to find who to assign there next.",
+    parameters: z.object({
+        limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(10)
+            .default(3)
+            .describe("Maximum number of waiting patients to return."),
+    }),
+    execute: async ({ limit }) => {
+        try {
+            return await withDb(async (db) => {
+                const patients = await db
+                    .collection("patients")
+                    .find({ status: "waiting" })
+                    .toArray();
+
+                const sorted = patients
+                    .sort((a, b) => {
+                        const ap = TRIAGE_PRIORITY[a.triageLevel as string] ?? 99;
+                        const bp = TRIAGE_PRIORITY[b.triageLevel as string] ?? 99;
+                        if (ap !== bp) return ap - bp;
+                        return (
+                            new Date(a.arrivalTime as string).getTime() -
+                            new Date(b.arrivalTime as string).getTime()
+                        );
+                    })
+                    .slice(0, limit);
+
+                return {
+                    status: "ok",
+                    waitingCount: patients.length,
+                    patients: sorted.map((p) => ({
+                        patientId: p.patientId,
+                        name: p.name ?? "-",
+                        triageLevel: p.triageLevel,
+                        chiefComplaint: p.chiefComplaint ?? "Unknown",
+                        recommendedBedType: p.recommendedBedType ?? "exam",
+                    })),
+                };
+            });
+        } catch (error) {
+            return {
+                status: "error",
+                message: error instanceof Error ? error.message : "Failed to query patients.",
+            };
+        }
+    },
+});
+
+export const markBedCleanedTool = new FunctionTool({
+    name: "mark_bed_cleaned",
+    description:
+        "Mark a specific bed as cleaned and ready for a new patient. " +
+        "Clears the needsCleaning flag so the bed appears in get_available_beds results.",
+    parameters: z.object({
+        bedId: z.string().min(1).describe("The bed ID to mark as cleaned, e.g. B-012"),
+    }),
+    execute: async ({ bedId }) => {
+        try {
+            return await withDb(async (db) => {
+                const result = await db.collection("beds").updateOne(
+                    { bedId },
+                    { $set: { needsCleaning: false, updatedAt: new Date() } },
+                );
+                if (result.matchedCount === 0) {
+                    return { status: "error", message: `Bed ${bedId} not found.` };
+                }
+                await logEvent(db, {
+                    type: "bed_cleaned",
+                    bedId,
+                    severity: "info",
+                    message: `Bed ${bedId} marked as cleaned and ready for a new patient.`,
+                });
+                return {
+                    status: "ok",
+                    bedId,
+                    message: `Bed ${bedId} is now clean and ready for assignment.`,
+                };
+            });
+        } catch (error) {
+            return {
+                status: "error",
+                message: error instanceof Error ? error.message : "Failed to update bed.",
             };
         }
     },

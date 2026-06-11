@@ -7,3 +7,4 @@ dist/
 .env
 .env.local
 backend/service-account.json
+todo.md
