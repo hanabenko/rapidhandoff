@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rapid Handoff - Operations Dashboard</title>
+  <title>Rapid Handoff - Patient Check-In</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg: #f4f6fb;
       --surface: #ffffff;
-      --surface2: #f0f2f8;
       --border: #dde2ee;
       --text: #111827;
       --muted: #6b7280;
@@ -20,6 +19,7 @@
       --esi-3: #ca8a04;
       --esi-4: #16a34a;
       --esi-5: #2563eb;
+      --red: #dc2626;
       --radius: 10px;
     }
 
@@ -28,946 +28,817 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 24px 20px;
+      padding: 24px 16px;
     }
 
-    .topbar {
-      max-width: 1100px;
+    header {
+      max-width: 760px;
       margin: 0 auto 28px;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
+      align-items: baseline;
       gap: 12px;
+      flex-wrap: wrap;
     }
-    .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .brand h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
-    .brand h1 span { color: var(--accent); }
-    .brand .tag {
-      font-size: 0.7rem;
+    header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: var(--accent); }
+    header .tag {
+      font-size: 0.72rem;
       font-weight: 600;
-      letter-spacing: 0.09em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
       border: 1px solid var(--border);
-      padding: 3px 9px;
+      padding: 3px 8px;
       border-radius: 999px;
     }
-    .brand-copy {
+    header .intro {
       width: 100%;
       color: var(--muted);
-      font-size: 0.82rem;
-      line-height: 1.5;
-      margin-top: 4px;
-    }
-    .topbar-right { display: flex; align-items: center; gap: 16px; }
-    .clock {
-      font-size: 1.65rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      font-variant-numeric: tabular-nums;
-    }
-    .refresh-note { font-size: 0.72rem; color: var(--muted); }
-
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      background: #4ade80;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 6px;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-top: 2px;
     }
 
-    .offline-bar {
-      display: none;
-      max-width: 1100px;
-      margin: 0 auto 16px;
-      padding: 10px 16px;
-      background: rgba(220,38,38,0.07);
-      border: 1px solid rgba(220,38,38,0.2);
-      border-radius: var(--radius);
-      font-size: 0.82rem;
-      color: #dc2626;
-    }
-    .offline-bar.visible { display: block; }
-
-    .stats-row {
-      max-width: 1100px;
-      margin: 0 auto 24px;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .stat-chip {
+    .card {
+      max-width: 760px;
+      margin: 0 auto 20px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 20px;
-      flex: 1;
-      min-width: 140px;
+      padding: 24px;
     }
-    .stat-chip .label {
-      font-size: 0.68rem;
+
+    .section + .section {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 0.7rem;
       font-weight: 700;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .section-copy {
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+
+    .row {
+      display: flex;
+      gap: 14px;
+    }
+    .row .field { flex: 1; }
+
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
       color: var(--muted);
       margin-bottom: 6px;
     }
-    .stat-chip .value {
-      font-size: 1.8rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      font-variant-numeric: tabular-nums;
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
     }
-    .stat-chip .sub {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 2px;
-      line-height: 1.4;
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: var(--accent);
     }
+    .field input.error,
+    .field textarea.error {
+      border-color: var(--red);
+    }
+    .field textarea {
+      resize: vertical;
+      min-height: 92px;
+    }
+    .field .hint {
+      font-size: 0.72rem;
+      color: var(--red);
+      margin-top: 4px;
+      display: none;
+    }
+    .field.invalid .hint { display: block; }
 
-    .main-grid {
-      max-width: 1100px;
-      margin: 0 auto;
+    .choices {
       display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .choice {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 12px;
+      background: rgba(0,0,0,0.02);
+    }
+    .choice small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.45;
     }
 
-    .panel {
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: opacity 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+    .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .loading {
+      display: none;
+      flex-direction: column;
+      gap: 0;
+      padding: 20px 24px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
+      max-width: 760px;
+      margin: 0 auto 20px;
     }
-    .panel-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
+    .loading.visible { display: flex; }
+    .loading-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 10px;
+      margin-bottom: 18px;
     }
-    .panel-header h2 {
-      font-size: 0.82rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
     }
-    .panel-caption {
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-
-    .queue-empty,
-    .list-empty {
-      padding: 36px 24px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-    .queue-row {
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-header span { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step {
       display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 20px;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
       border-bottom: 1px solid var(--border);
-      transition: background 0.12s;
+      opacity: 0.35;
+      transition: opacity 0.3s;
     }
-    .queue-row:last-child { border-bottom: none; }
-    .queue-row:hover { background: var(--surface2); }
-
-    .queue-pos {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--muted);
-      width: 24px;
+    .step:last-child { border-bottom: none; }
+    .step.active { opacity: 1; }
+    .step.done { opacity: 1; }
+    .step-icon {
+      width: 20px;
+      height: 20px;
       flex-shrink: 0;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .esi-dot {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      flex-shrink: 0;
+      margin-top: 1px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 0.85rem;
-      font-weight: 800;
     }
-    .esi-dot.esi-1 { background: rgba(220,38,38,0.1); color: var(--esi-1); border: 1.5px solid rgba(220,38,38,0.35); }
-    .esi-dot.esi-2 { background: rgba(234,88,12,0.1); color: var(--esi-2); border: 1.5px solid rgba(234,88,12,0.35); }
-    .esi-dot.esi-3 { background: rgba(202,138,4,0.1); color: var(--esi-3); border: 1.5px solid rgba(202,138,4,0.35); }
-    .esi-dot.esi-4 { background: rgba(22,163,74,0.1); color: var(--esi-4); border: 1.5px solid rgba(22,163,74,0.35); }
-    .esi-dot.esi-5 { background: rgba(37,99,235,0.1); color: var(--esi-5); border: 1.5px solid rgba(37,99,235,0.35); }
+    .step.active .step-icon::before { content: ""; display: block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .step.done .step-icon { color: #16a34a; font-size: 1rem; }
+    .step.done .step-icon::after { content: "✓"; }
+    .step.pending .step-icon { color: var(--muted); font-size: 1rem; }
+    .step.pending .step-icon::after { content: "○"; }
+    .step-body { flex: 1; }
+    .step-label { font-size: 0.88rem; font-weight: 500; color: var(--text); line-height: 1.3; }
+    .step.pending .step-label { color: var(--muted); }
+    .step-detail { font-size: 0.78rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
 
-    .queue-info { flex: 1; min-width: 0; }
-    .queue-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .reasoning-log {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 150px;
+      overflow-y: auto;
     }
-    .queue-detail {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 2px;
+    .log-entry {
+      display: flex;
+      gap: 8px;
+      font-size: 0.77rem;
       line-height: 1.45;
     }
+    .log-tag { font-weight: 600; flex-shrink: 0; font-family: monospace; }
+    .log-entry.agent .log-tag  { color: var(--accent); }
+    .log-entry.action .log-tag { color: #7c3aed; }
+    .log-entry.text .log-tag   { color: #16a34a; }
+    .log-text { color: var(--muted); }
 
-    .queue-right { text-align: right; flex-shrink: 0; }
-    .wait-est { font-size: 0.82rem; font-weight: 600; }
-    .wait-label { font-size: 0.68rem; color: var(--muted); margin-top: 4px; }
-
-    .status-badge,
-    .priority-badge,
-    .severity-badge {
-      display: inline-block;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-    }
-    .status-waiting { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
-    .status-in_treatment { background: rgba(22,163,74,0.1); color: #15803d; border-color: rgba(22,163,74,0.25); }
-    .priority-high,
-    .severity-critical { background: rgba(220,38,38,0.1); color: #b91c1c; border-color: rgba(220,38,38,0.25); }
-    .priority-medium,
-    .severity-warning { background: rgba(234,88,12,0.1); color: #c2410c; border-color: rgba(234,88,12,0.25); }
-    .priority-low,
-    .severity-info { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
-
-    .sidebar { display: flex; flex-direction: column; gap: 16px; }
-
-    .list-item {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-    }
-    .list-item:last-child { border-bottom: none; }
-    .list-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-    .list-title strong {
-      font-size: 0.88rem;
-      line-height: 1.4;
-      font-weight: 600;
-    }
-    .list-detail {
-      color: var(--muted);
-      font-size: 0.76rem;
-      line-height: 1.5;
-    }
-
-    .bed-bar-wrap { padding: 14px 20px 16px; }
-    .bed-bar-label {
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-    .bed-bar-track {
-      height: 10px;
-      background: var(--border);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .bed-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 999px;
-      transition: width 0.5s ease;
-    }
-    .bed-bar-fill.full { background: var(--esi-1); }
-    .bed-bar-fill.high { background: var(--esi-2); }
-    .bed-counts {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 7px;
-    }
-
-    .act-btn {
-      flex-shrink: 0;
-      background: rgba(45,107,228,0.08);
-      border: 1px solid rgba(45,107,228,0.25);
-      color: var(--accent);
-      font-size: 0.67rem;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-      padding: 4px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.12s, opacity 0.12s;
-      white-space: nowrap;
-    }
-    .act-btn:hover:not(:disabled) { background: rgba(45,107,228,0.15); }
-    .act-btn:disabled { opacity: 0.45; cursor: default; }
-    .act-btn.done {
-      background: rgba(22,163,74,0.1);
-      border-color: rgba(22,163,74,0.3);
-      color: #15803d;
-    }
-    .act-btn.failed {
-      background: rgba(220,38,38,0.1);
-      border-color: rgba(220,38,38,0.25);
-      color: #b91c1c;
-    }
-
-    .action-trace {
-      margin-top: 10px;
-      background: rgba(0,0,0,0.03);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 10px;
-      max-height: 180px;
-      overflow-y: auto;
+    #agent-trace {
       display: none;
-    }
-    .action-log-entry {
-      display: flex;
-      align-items: baseline;
-      gap: 7px;
-      font-size: 0.7rem;
-      line-height: 1.5;
-      padding: 2px 0;
-    }
-    .action-log-entry + .action-log-entry { border-top: 1px solid rgba(255,255,255,0.04); }
-    .log-tag {
-      flex-shrink: 0;
-      font-size: 0.62rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 1px 6px;
-      border-radius: 4px;
-      white-space: nowrap;
-    }
-    .log-text { color: var(--muted); word-break: break-word; }
-    .log-tool .log-tag    { background: rgba(45,107,228,0.1); color: #1e40af; }
-    .log-result .log-tag  { background: rgba(202,138,4,0.1); color: #a16207; }
-    .log-text-ev .log-tag { background: rgba(124,58,237,0.1); color: #6d28d9; }
-    .log-done .log-tag    { background: rgba(22,163,74,0.1); color: #15803d; }
-    .log-error .log-tag   { background: rgba(220,38,38,0.1); color: #b91c1c; }
-    .log-done .log-text, .log-error .log-text { color: var(--text); }
-
-    .rooms-panel {
-      max-width: 1100px;
-      margin: 0 auto 16px;
+      max-width: 760px;
+      margin: 0 auto 20px;
+      padding: 14px 20px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
     }
-    .rooms-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-      gap: 1px;
-      background: var(--border);
-    }
-    .room-card {
-      background: var(--surface);
-      padding: 9px 11px 8px;
-      transition: background 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-    .room-card.room-available { background: rgba(22,163,74,0.05); }
-    .room-card.room-cleaning  { background: rgba(245,158,11,0.07); }
-    .room-card.room-occupied  { background: rgba(45,107,228,0.06); }
-    .room-card.room-occupied.esi-1 { background: rgba(220,38,38,0.07); }
-    .room-card.room-occupied.esi-2 { background: rgba(234,88,12,0.07); }
-    .room-card.room-occupied.esi-3 { background: rgba(202,138,4,0.06); }
-    .room-card.room-just-assigned {
-      animation: roomFlash 1.4s ease;
-    }
-    @keyframes roomFlash {
-      0%   { background: rgba(45,107,228,0.22); }
-      100% { background: rgba(45,107,228,0.06); }
-    }
-    .room-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 5px;
-    }
-    .room-id {
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-    }
-    .room-type-badge {
-      font-size: 0.58rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: rgba(255,255,255,0.06);
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-    .room-status-line {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 4px;
-    }
-    .room-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .room-available .room-dot { background: #16a34a; }
-    .room-cleaning  .room-dot { background: #d97706; animation: pulse 1.5s infinite; }
-    .room-occupied  .room-dot { background: var(--accent); }
-    .room-status-text {
-      font-size: 0.6rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-    }
-    .room-available .room-status-text { color: #15803d; }
-    .room-cleaning  .room-status-text { color: #b45309; }
-    .room-occupied  .room-status-text { color: var(--accent); }
-    .room-patient {
+    #agent-trace.visible { display: block; }
+    .agent-trace-label {
       font-size: 0.72rem;
       font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.3;
-    }
-    .room-meta {
-      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--muted);
-      margin-top: 1px;
+      margin-bottom: 10px;
     }
 
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 200;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
-      max-width: 380px;
+    .error-banner {
+      display: none;
+      max-width: 760px;
+      margin: 0 auto 20px;
+      padding: 14px 18px;
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.25);
+      border-radius: var(--radius);
+      color: #dc2626;
+      font-size: 0.88rem;
     }
-    .toast {
+    .error-banner.visible { display: block; }
+
+    .result {
+      display: none;
+      max-width: 760px;
+      margin: 0 auto 20px;
       background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 13px 16px;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.12);
-      pointer-events: auto;
-      animation: toastIn 0.22s ease;
     }
-    .toast.toast-success { border-left: 3px solid #16a34a; }
-    .toast.toast-info    { border-left: 3px solid var(--accent); }
-    .toast-title {
+    .result.visible { display: block; }
+
+    .result-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .result-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .result-header p {
       font-size: 0.82rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .toast-success .toast-title { color: #15803d; }
-    .toast-info    .toast-title { color: var(--accent); }
-    .toast-body {
-      font-size: 0.75rem;
       color: var(--muted);
+      margin-top: 4px;
       line-height: 1.5;
     }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+
+    .result-body { padding: 20px 24px; }
+    .result-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .result-row:last-of-type { border-bottom: none; }
+    .label {
+      width: 130px;
+      flex-shrink: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .value {
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .result-note {
+      margin-top: 16px;
+      padding: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.6;
     }
 
-    @media (max-width: 720px) {
-      .main-grid { grid-template-columns: 1fr; }
-      .clock { font-size: 1.3rem; }
-      .queue-row { align-items: flex-start; }
-      .rooms-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .reset-btn {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .reset-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    @media (max-width: 600px) {
+      .row { flex-direction: column; }
+      .choices { grid-template-columns: 1fr; }
+      .result-row { flex-direction: column; gap: 4px; }
+      .label { width: auto; }
     }
   </style>
 </head>
 <body>
 
-  <div class="topbar">
-    <div class="brand">
-      <h1>Rapid <span>Handoff</span></h1>
-      <span class="tag">Operations Dashboard</span>
-      <p class="brand-copy">Queue, cleaning backlog, nurse paging needs, and shift-length alerts in one place.</p>
+  <header>
+    <h1>Rapid <span>Handoff</span></h1>
+    <span class="tag">Waiting Room</span>
+    <p class="intro">Tell us what is going on in your own words. Use what you know at home or right now. You do not need blood pressure or other equipment readings to complete this form.</p>
+  </header>
+
+  <div class="card" id="form-card">
+    <div class="section">
+      <div class="section-label">Basic Information</div>
+      <p class="section-copy">We only need a few details to get you into the right line quickly.</p>
+      <div class="row">
+        <div class="field" id="field-name">
+          <label for="name">Full name</label>
+          <input type="text" id="name" placeholder="Jane Smith" autocomplete="off" />
+          <div class="hint">Please enter a name.</div>
+        </div>
+        <div class="field" id="field-age" style="max-width:120px">
+          <label for="age">Age</label>
+          <input type="number" id="age" placeholder="42" min="0" max="150" />
+          <div class="hint">Please enter an age.</div>
+        </div>
+      </div>
+
+      <div class="field" id="field-complaint">
+        <label for="complaint">What brings you in today?</label>
+        <textarea id="complaint" placeholder="Describe what is bothering you, where it hurts, and anything that feels unusual."></textarea>
+        <div class="hint">Please tell us why you are here.</div>
+      </div>
     </div>
-    <div class="topbar-right">
-      <div>
-        <div class="clock" id="clock">--:--:--</div>
-        <div class="refresh-note"><span class="live-dot"></span>Live refresh every 30 seconds</div>
+
+    <div class="section">
+      <div class="section-label">What You Know Right Now</div>
+      <p class="section-copy">These are patient-friendly questions that do not require staff equipment.</p>
+
+      <div class="row">
+        <div class="field">
+          <label for="started">When did this start?</label>
+          <select id="started">
+            <option value="">Choose one</option>
+            <option value="within the last hour">Within the last hour</option>
+            <option value="today">Today</option>
+            <option value="within the last few days">Within the last few days</option>
+            <option value="more than a week ago">More than a week ago</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pain">Pain level</label>
+          <select id="pain">
+            <option value="">Choose one</option>
+            <option value="0 out of 10">0 out of 10</option>
+            <option value="1 to 3 out of 10">1 to 3 out of 10</option>
+            <option value="4 to 6 out of 10">4 to 6 out of 10</option>
+            <option value="7 to 8 out of 10">7 to 8 out of 10</option>
+            <option value="9 to 10 out of 10">9 to 10 out of 10</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="choices">
+        <div class="choice field">
+          <label for="breathing">Trouble breathing?</label>
+          <select id="breathing">
+            <option value="">Choose one</option>
+            <option value="yes, severe trouble breathing">Yes, severe</option>
+            <option value="yes, mild trouble breathing">Yes, mild</option>
+            <option value="no trouble breathing">No</option>
+          </select>
+          <small>Include shortness of breath or breathing that feels harder than normal.</small>
+        </div>
+        <div class="choice field">
+          <label for="chest-pain">Chest pain or pressure?</label>
+          <select id="chest-pain">
+            <option value="">Choose one</option>
+            <option value="yes, chest pain or pressure now">Yes</option>
+            <option value="no chest pain or pressure">No</option>
+          </select>
+          <small>Use this for tightness, squeezing, or pressure in the chest.</small>
+        </div>
+        <div class="choice field">
+          <label for="bleeding">Heavy bleeding?</label>
+          <select id="bleeding">
+            <option value="">Choose one</option>
+            <option value="yes, heavy bleeding">Yes</option>
+            <option value="no heavy bleeding">No</option>
+          </select>
+          <small>Choose yes if blood is soaking through clothes, bandages, or will not stop.</small>
+        </div>
+        <div class="choice field">
+          <label for="confusion">Fainted, confused, or very hard to wake?</label>
+          <select id="confusion">
+            <option value="">Choose one</option>
+            <option value="yes, fainting or confusion">Yes</option>
+            <option value="no fainting or confusion">No</option>
+          </select>
+          <small>Choose yes for fainting, passing out, or sudden confusion.</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="fever">Fever at home, if you checked?</label>
+          <input type="text" id="fever" placeholder="Example: 101.4 F, or leave blank" />
+        </div>
+        <div class="field">
+          <label for="notes">Anything else we should know?</label>
+          <input type="text" id="notes" placeholder="Example: pregnant, fell down stairs, cannot keep fluids down" />
+        </div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
+      Submit check in
+    </button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-header">
+      <div class="spinner"></div>
+      <span>Multi-agent system processing — this takes 30–60 seconds</span>
+    </div>
+    <div class="steps">
+      <div class="step pending" id="step-1">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Patient information recorded</div>
+          <div class="step-detail">Intake submitted to ER orchestrator</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-2">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Triage agent assessing severity</div>
+          <div class="step-detail">er_triage_agent evaluating ESI level, care pathway, and escalation flags</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-3">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Checking bed availability</div>
+          <div class="step-detail">Querying MongoDB for open beds matching triage requirements</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-4">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Coordinating staff assignment</div>
+          <div class="step-detail">er_staff_coordinator matching available staff to acuity level</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="offline-bar" id="offline-bar">Unable to connect to the ER system. Retrying automatically.</div>
-
-  <div class="stats-row">
-    <div class="stat-chip">
-      <div class="label">Waiting</div>
-      <div class="value" id="stat-waiting">-</div>
-      <div class="sub">patients still in queue</div>
-    </div>
-    <div class="stat-chip">
-      <div class="label">In Treatment</div>
-      <div class="value" id="stat-treatment">-</div>
-      <div class="sub">actively being seen</div>
-    </div>
-    <div class="stat-chip">
-      <div class="label">Ready Beds</div>
-      <div class="value" id="stat-beds">-</div>
-      <div class="sub" id="stat-beds-sub">of - total</div>
-    </div>
-    <div class="stat-chip">
-      <div class="label">Rooms To Clean</div>
-      <div class="value" id="stat-cleaning">-</div>
-      <div class="sub">blocking bed turnover</div>
-    </div>
-    <div class="stat-chip">
-      <div class="label">Page-Ready Nurses</div>
-      <div class="value" id="stat-page-nurses">-</div>
-      <div class="sub">available now</div>
-    </div>
-    <div class="stat-chip">
-      <div class="label">Staff On Duty</div>
-      <div class="value" id="stat-staff">-</div>
-      <div class="sub">across the unit</div>
-    </div>
+  <div id="agent-trace">
+    <div class="agent-trace-label">Agent activity</div>
+    <div class="reasoning-log" id="reasoning-log"></div>
   </div>
 
-  <div class="rooms-panel" id="rooms-panel">
-    <div class="panel-header">
-      <h2>ER Room Map</h2>
-      <span class="panel-caption" id="rooms-caption">Loading...</span>
+  <div class="error-banner" id="error-banner"></div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <h2 id="result-name">You are checked in</h2>
+      <p id="result-subtitle">A staff member will review your information and call you as soon as possible.</p>
     </div>
-    <div class="rooms-grid" id="rooms-grid"></div>
-  </div>
-
-  <div class="main-grid">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Active Queue</h2>
-        <span id="queue-count" class="panel-caption"></span>
+    <div class="result-body">
+      <div class="result-row">
+        <span class="label">Check-in ID</span>
+        <span class="value" id="r-id">-</span>
       </div>
-      <div id="queue-list">
-        <div class="queue-empty">Loading queue...</div>
+      <div class="result-row">
+        <span class="label">Room</span>
+        <span class="value" id="r-bed">Waiting area</span>
       </div>
-    </div>
-
-    <div class="sidebar">
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Next Actions</h2>
-          <span class="panel-caption">What needs attention now</span>
-        </div>
-        <div id="next-actions">
-          <div class="list-empty">Loading actions...</div>
-        </div>
+      <div class="result-row">
+        <span class="label">Care team</span>
+        <span class="value" id="r-staff">Staff notified</span>
       </div>
-
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Important Alerts</h2>
-          <span class="panel-caption">Critical and time-sensitive issues</span>
-        </div>
-        <div id="alerts-list">
-          <div class="list-empty">Loading alerts...</div>
-        </div>
+      <div class="result-row">
+        <span class="label">Next step</span>
+        <span class="value" id="r-next">Please stay nearby so staff can find you quickly if a room opens.</span>
       </div>
-
-      <div class="panel">
-        <div class="panel-header"><h2>Bed Capacity</h2></div>
-        <div class="bed-bar-wrap">
-          <div class="bed-bar-label">Occupancy</div>
-          <div class="bed-bar-track">
-            <div class="bed-bar-fill" id="bed-bar" style="width:0%"></div>
-          </div>
-          <div class="bed-counts">
-            <span id="bed-label-occupied">- occupied</span>
-            <span id="bed-label-available">- ready</span>
-          </div>
-        </div>
-      </div>
+      <div class="result-note" id="r-flags-note">If your symptoms get worse, tell the front desk right away.</div>
+      <button class="reset-btn" onclick="resetForm()">Start another check in</button>
     </div>
   </div>
-
-  <div class="toast-container" id="toast-container"></div>
 
   <script>
-    const ESI_NUM = {
-      critical: 1,
-      emergent: 2,
-      urgent: 3,
-      less_urgent: 4,
-      non_urgent: 5,
-    };
+    function validate() {
+      let ok = true;
+      const required = [
+        { id: "field-name", input: "name" },
+        { id: "field-age", input: "age" },
+        { id: "field-complaint", input: "complaint" },
+      ];
 
-    const WAIT_EST = {
-      critical: "Immediate",
-      emergent: "< 15 min",
-      urgent: "30-60 min",
-      less_urgent: "1-2 hrs",
-      non_urgent: "2+ hrs",
-    };
+      for (const { id, input } of required) {
+        const el = document.getElementById(input);
+        const wrapper = document.getElementById(id);
+        if (!el.value.trim()) {
+          wrapper.classList.add("invalid");
+          el.classList.add("error");
+          ok = false;
+        } else {
+          wrapper.classList.remove("invalid");
+          el.classList.remove("error");
+        }
+      }
 
-    function waitColor(level) {
-      const colors = {
-        critical: "#dc2626",
-        emergent: "#ea580c",
-        urgent: "#a16207",
-        less_urgent: "#15803d",
-        non_urgent: "#2563eb",
+      return ok;
+    }
+
+    function buildQuery() {
+      const name = document.getElementById("name").value.trim();
+      const age = document.getElementById("age").value.trim();
+      const complaint = document.getElementById("complaint").value.trim();
+      const started = document.getElementById("started").value;
+      const pain = document.getElementById("pain").value;
+      const breathing = document.getElementById("breathing").value;
+      const chestPain = document.getElementById("chest-pain").value;
+      const bleeding = document.getElementById("bleeding").value;
+      const confusion = document.getElementById("confusion").value;
+      const fever = document.getElementById("fever").value.trim();
+      const notes = document.getElementById("notes").value.trim();
+
+      const details = [];
+      if (started) details.push(`Symptoms started ${started}`);
+      if (pain) details.push(`Pain level reported as ${pain}`);
+      if (breathing) details.push(breathing);
+      if (chestPain) details.push(chestPain);
+      if (bleeding) details.push(bleeding);
+      if (confusion) details.push(confusion);
+      if (fever) details.push(`Home temperature: ${fever}`);
+      if (notes) details.push(`Other important note: ${notes}`);
+
+      const detailText = details.length
+        ? ` Self-reported details: ${details.join(". ")}.`
+        : "";
+
+      return `New patient arrival: ${name}, ${age} years old. Chief complaint: ${complaint}.${detailText}`;
+    }
+
+    function parseResponse(text) {
+      const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+      const get = (label) => {
+        for (const line of lines) {
+          const match = line.match(new RegExp(`\\*\\*${label}[:\\*]+\\s*(.+)`, "i"));
+          if (match) return match[1].replace(/\*\*/g, "").trim();
+        }
+        return null;
       };
-      return colors[level] || "var(--text)";
+
+      return {
+        patientId: get("Patient registered")?.match(/\(([^)]+)\)/)?.[1] ?? get("Patient registered"),
+        patientName: get("Patient registered")?.split("(")[0].trim(),
+        triageLevel: get("Triage level"),
+        reasoning: get("Clinical reasoning"),
+        bed: get("Bed assigned"),
+        staff: get("Staff assigned"),
+        flags: get("Escalation flags"),
+      };
     }
 
-    function escHtml(value) {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    function showResult(rawText, queryName) {
+      const parsed = parseResponse(rawText);
+      const nextStep =
+        parsed.bed && !parsed.bed.toLowerCase().includes("no bed")
+          ? `Please head to ${parsed.bed}.`
+          : "Please stay in the waiting area until a staff member calls your name.";
+      const flags =
+        parsed.flags && parsed.flags.toLowerCase() !== "none"
+          ? `Staff noted: ${parsed.flags}. If anything changes, tell the front desk right away.`
+          : "If your symptoms get worse, tell the front desk right away.";
+
+      document.getElementById("result-name").textContent =
+        `${parsed.patientName || queryName || "You"} are checked in`;
+      document.getElementById("result-subtitle").textContent =
+        "A staff member will review your information and call you as soon as possible.";
+      document.getElementById("r-id").textContent = parsed.patientId || "-";
+      document.getElementById("r-bed").textContent = parsed.bed || "Waiting area";
+      document.getElementById("r-staff").textContent = parsed.staff || "Care team notified";
+      document.getElementById("r-next").textContent = nextStep;
+      document.getElementById("r-flags-note").textContent = flags;
+
+      document.getElementById("result").classList.add("visible");
+      document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    function elapsed(arrivalTime) {
-      const ms = Date.now() - new Date(arrivalTime).getTime();
-      const minutes = Math.max(0, Math.floor(ms / 60000));
-      if (minutes < 1) return "just arrived";
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      const remaining = minutes % 60;
-      return `${hours}h ${remaining}m ago`;
+    let stepTimers = [];
+
+    function startFallbackTimers() {
+      stepTimers.push(setTimeout(() => { if (activeStep < 2) advanceToStep(2); }, 8000));
+      stepTimers.push(setTimeout(() => { if (activeStep < 3) advanceToStep(3); }, 22000));
+      stepTimers.push(setTimeout(() => { if (activeStep < 4) advanceToStep(4); }, 38000));
     }
 
-    function timeStamp(value) {
-      return new Date(value).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    function clearTimers() {
+      stepTimers.forEach(clearTimeout);
+      stepTimers = [];
     }
 
-    function updateClock() {
-      document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
+    const TOOL_STEP = {
+      intake_patient: 1,
+      er_triage_agent: 2,
+      get_available_beds: 3, assign_patient_to_bed: 3,
+      er_staff_coordinator: 4, assign_staff_to_patient: 4, get_available_staff: 4,
+    };
+    const TOOL_LABEL = {
+      intake_patient: "Patient registered",
+      er_triage_agent: "Triage agent",
+      get_available_beds: "Bed query",
+      assign_patient_to_bed: "Bed assigned",
+      er_staff_coordinator: "Staff coordinator",
+      assign_staff_to_patient: "Staff assigned",
+      get_available_staff: "Staff query",
+    };
+
+    let activeStep = 0;
+
+    function setStep(id, state) {
+      const el = document.getElementById(id);
+      el.classList.remove("pending", "active", "done");
+      el.classList.add(state);
     }
 
-    function renderQueue(patients) {
-      const container = document.getElementById("queue-list");
-      document.getElementById("queue-count").textContent =
-        patients.length ? `${patients.length} active patient${patients.length === 1 ? "" : "s"}` : "No active queue";
+    function advanceToStep(n) {
+      if (n <= activeStep) return;
+      for (let i = 1; i < n; i++) setStep(`step-${i}`, "done");
+      setStep(`step-${n}`, "active");
+      activeStep = n;
+    }
 
-      if (!patients.length) {
-        container.innerHTML = '<div class="queue-empty">No patients currently in queue.</div>';
-        return;
+    function completeSteps() {
+      for (let i = 1; i <= 4; i++) setStep(`step-${i}`, "done");
+    }
+
+    function resetSteps() {
+      activeStep = 0;
+      for (let i = 1; i <= 4; i++) setStep(`step-${i}`, "pending");
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function clearLog() {
+      document.getElementById("reasoning-log").innerHTML = "";
+      document.getElementById("agent-trace").classList.remove("visible");
+    }
+
+    function addLog(type, tag, text) {
+      document.getElementById("agent-trace").classList.add("visible");
+      const log = document.getElementById("reasoning-log");
+      const el = document.createElement("div");
+      el.className = `log-entry ${type}`;
+      el.innerHTML = `<span class="log-tag">${escHtml(tag)}</span><span class="log-text">${escHtml(text)}</span>`;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function handleStreamEvent(ev) {
+      if (ev.type === "tool_call") {
+        const step = TOOL_STEP[ev.tool];
+        const label = TOOL_LABEL[ev.tool] ?? ev.tool;
+        if (step) advanceToStep(step);
+        addLog("agent", label, "→ called");
+      } else if (ev.type === "tool_result") {
+        const label = TOOL_LABEL[ev.tool] ?? ev.tool;
+        addLog("action", label, "✓ complete");
+      } else if (ev.type === "tool_result_detail" && ev.text) {
+        const short = ev.text.length > 250 ? ev.text.slice(0, 250) + "…" : ev.text;
+        addLog("text", ev.agent || "agent", short);
+      } else if (ev.type === "text" && ev.text) {
+        const short = ev.text.length > 180 ? ev.text.slice(0, 180) + "…" : ev.text;
+        addLog("text", ev.agent || "agent", short);
       }
-
-      container.innerHTML = patients.map((patient, index) => {
-        const esi = ESI_NUM[patient.triageLevel] || "?";
-        const statusClass = patient.status === "in_treatment" ? "status-in_treatment" : "status-waiting";
-        const statusLabel = patient.status === "in_treatment" ? "In treatment" : "Waiting";
-        const roomText = patient.room ? `Room ${escHtml(patient.room)}` : "Waiting area";
-        const ageText = patient.age ? `${patient.age} y/o` : "Age not listed";
-
-        return `
-          <div class="queue-row">
-            <div class="queue-pos">${index + 1}</div>
-            <div class="esi-dot esi-${esi}">${esi}</div>
-            <div class="queue-info">
-              <div class="queue-name">${escHtml(patient.name)}</div>
-              <div class="queue-detail">${escHtml(ageText)} · ${roomText} · ${elapsed(patient.arrivalTime)}</div>
-              <div class="queue-detail">${escHtml(patient.chiefComplaint || "No complaint entered")}</div>
-            </div>
-            <div class="queue-right">
-              <div class="wait-est" style="color:${waitColor(patient.triageLevel)}">${WAIT_EST[patient.triageLevel] || "-"}</div>
-              <div class="wait-label"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
-            </div>
-          </div>`;
-      }).join("");
     }
 
-    function renderStats(stats) {
-      document.getElementById("stat-waiting").textContent = stats.waitingCount;
-      document.getElementById("stat-treatment").textContent = stats.inTreatmentCount;
-      document.getElementById("stat-beds").textContent = stats.bedsAvailable;
-      document.getElementById("stat-beds-sub").textContent = `of ${stats.totalBeds} total`;
-      document.getElementById("stat-cleaning").textContent = stats.bedsAwaitingCleaning;
-      document.getElementById("stat-page-nurses").textContent = stats.pageReadyNurses;
-      document.getElementById("stat-staff").textContent = stats.staffOnDuty;
+    async function handleSubmit() {
+      if (!validate()) return;
 
-      const pct = stats.totalBeds > 0
-        ? Math.round((stats.bedsOccupied / stats.totalBeds) * 100)
-        : 0;
-      const bar = document.getElementById("bed-bar");
-      bar.style.width = `${pct}%`;
-      bar.className = `bed-bar-fill${pct >= 90 ? " full" : pct >= 70 ? " high" : ""}`;
-      document.getElementById("bed-label-occupied").textContent = `${stats.bedsOccupied} occupied`;
-      document.getElementById("bed-label-available").textContent = `${stats.bedsAvailable} ready`;
-    }
+      const query = buildQuery();
+      const patientName = document.getElementById("name").value.trim();
 
-    function renderList(targetId, items, emptyText, renderer) {
-      const target = document.getElementById(targetId);
-      if (!items.length) {
-        target.innerHTML = `<div class="list-empty">${emptyText}</div>`;
-        return;
-      }
-      target.innerHTML = items.map(renderer).join("");
-    }
-
-    let pendingActions = [];
-
-    function buildActionPrompt(action) {
-      if (action.category === "cleaning") {
-        const bedInfo = action.bedId ? ` (bed ID: ${action.bedId})` : "";
-        return `Clean bed${bedInfo} in room ${action.room || action.bedId || "the ER"}: mark it as cleaned, then check the waiting queue and assign the highest priority waiting patient to this freshly cleaned bed.`;
-      }
-      if (action.category === "paging") {
-        const idInfo = action.patientId ? ` (patient ID: ${action.patientId})` : "";
-        return `Page a nurse for patient ${action.patientName || "this patient"}${idInfo}. ${action.detail}`;
-      }
-      return `${action.title}. ${action.detail || ""}`.trim();
-    }
-
-    function addActionLog(trace, type, tag, text) {
-      trace.style.display = "block";
-      const entry = document.createElement("div");
-      entry.className = `action-log-entry log-${type}`;
-      entry.innerHTML = `<span class="log-tag">${escHtml(tag)}</span><span class="log-text">${escHtml(text)}</span>`;
-      trace.appendChild(entry);
-      trace.scrollTop = trace.scrollHeight;
-    }
-
-    async function handleAction(index) {
-      const action = pendingActions[index];
-      if (!action) return;
-      const btn = document.getElementById(`act-btn-${index}`);
-      const trace = document.getElementById(`action-trace-${index}`);
-      if (!btn || !trace) return;
-
-      btn.disabled = true;
-      btn.textContent = "Working...";
-      trace.innerHTML = "";
-
-      const prompt = buildActionPrompt(action);
+      document.getElementById("submit-btn").disabled = true;
+      document.getElementById("loading").classList.add("visible");
+      document.getElementById("error-banner").classList.remove("visible");
+      document.getElementById("result").classList.remove("visible");
+      resetSteps();
+      clearLog();
+      setStep("step-1", "done");
+      activeStep = 1;
+      startFallbackTimers();
 
       try {
         const res = await fetch("/agent/orchestrate/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: prompt }),
+          body: JSON.stringify({ query, userId: "check-in-form" }),
         });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message ?? `Server error ${res.status}`);
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let finalResponse = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+          buffer = lines.pop();
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             try {
               const ev = JSON.parse(line.slice(6));
-              if (ev.type === "tool_call") {
-                addActionLog(trace, "tool", ev.agent || "agent", `→ ${ev.tool}`);
-              } else if (ev.type === "tool_result_detail") {
-                const preview = ev.text.length > 120 ? ev.text.slice(0, 120) + "…" : ev.text;
-                addActionLog(trace, "result", ev.agent || "result", preview);
-              } else if (ev.type === "text") {
-                addActionLog(trace, "text-ev", ev.agent || "agent", ev.text);
-              } else if (ev.type === "done") {
-                addActionLog(trace, "done", "Done", ev.response || "Action completed.");
-                btn.textContent = "Done";
-                btn.classList.add("done");
-                const category = pendingActions[index]?.category;
-                if (category === "cleaning") {
-                  showToast("Room cleaned + patient assigned", ev.response || "Action completed.");
-                } else if (category === "paging") {
-                  showToast("Nurse paged", ev.response || "Action completed.", "info");
-                }
-                if (pendingActions[index]?.bedId) flashRoom(pendingActions[index].bedId);
-                setTimeout(fetchStatus, 2500);
-              } else if (ev.type === "error") {
-                addActionLog(trace, "error", "Error", ev.message);
-                btn.textContent = "Retry";
-                btn.classList.add("failed");
-                btn.disabled = false;
-              }
-            } catch {}
+              if (ev.type === "done") { finalResponse = ev.response; }
+              else if (ev.type === "error") { throw new Error(ev.message); }
+              else handleStreamEvent(ev);
+            } catch (parseErr) { /* skip malformed lines */ }
           }
         }
+
+        clearTimers();
+        completeSteps();
+        showResult(finalResponse || "Intake complete.", patientName);
+        document.getElementById("form-card").style.display = "none";
       } catch (err) {
-        addActionLog(trace, "error", "Error", err.message || "Connection failed");
-        btn.textContent = "Retry";
-        btn.classList.add("failed");
-        btn.disabled = false;
+        clearTimers();
+        const banner = document.getElementById("error-banner");
+        banner.textContent = `Error: ${err.message}`;
+        banner.classList.add("visible");
+      } finally {
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("loading").classList.remove("visible");
       }
     }
 
-    function renderOperations(operations) {
-      const actions = operations.nextActions || [];
-      pendingActions = actions;
-
-      const actionsContainer = document.getElementById("next-actions");
-      if (!actions.length) {
-        actionsContainer.innerHTML = '<div class="list-empty">No urgent next actions right now.</div>';
-      } else {
-        actionsContainer.innerHTML = actions.map((item, i) => `
-          <div class="list-item" id="action-item-${i}">
-            <div class="list-title">
-              <strong>${escHtml(item.title)}</strong>
-              <span class="priority-badge priority-${item.priority || "low"}">${escHtml(item.category || "action")}</span>
-              <button class="act-btn" id="act-btn-${i}" onclick="handleAction(${i})">Handle</button>
-            </div>
-            <div class="list-detail">${escHtml(item.detail || "")}</div>
-            <div class="action-trace" id="action-trace-${i}"></div>
-          </div>`
-        ).join("");
-      }
-
-      renderList(
-        "alerts-list",
-        operations.alerts || [],
-        "No important alerts at the moment.",
-        (item) => `
-          <div class="list-item">
-            <div class="list-title">
-              <strong>${escHtml(item.message)}</strong>
-              <span class="severity-badge severity-${item.severity || "info"}">${escHtml(item.severity || "info")}</span>
-            </div>
-            <div class="list-detail">Updated ${timeStamp(item.timestamp)}</div>
-          </div>`
-      );
+    function prefillDemo() {
+      document.getElementById("name").value = "Daniel Kim";
+      document.getElementById("age").value = "58";
+      document.getElementById("complaint").value = "Sudden severe headache — worst headache of my life. Came on like a thunderclap about 20 minutes ago. My wife says I was briefly confused right before it started.";
+      document.getElementById("started").value = "within the last hour";
+      document.getElementById("pain").value = "9 to 10 out of 10";
+      document.getElementById("breathing").value = "no trouble breathing";
+      document.getElementById("chest-pain").value = "no chest pain or pressure";
+      document.getElementById("bleeding").value = "no heavy bleeding";
+      document.getElementById("confusion").value = "yes, fainting or confusion";
+      document.getElementById("notes").value = "Wife reports brief confusion episode right before onset";
     }
+    prefillDemo();
 
-    function titleCase(str) {
-      return str.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    function resetForm() {
+      document.querySelectorAll("input, textarea, select").forEach((el) => {
+        el.value = "";
+        el.classList.remove("error");
+      });
+      document.querySelectorAll(".field.invalid").forEach((el) => el.classList.remove("invalid"));
+      document.getElementById("form-card").style.display = "block";
+      document.getElementById("result").classList.remove("visible");
+      document.getElementById("error-banner").classList.remove("visible");
+      resetSteps();
+      clearLog();
+      prefillDemo();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
-
-    const BED_TYPE_ABBR = { trauma: "T", exam: "E", observation: "OBS", isolation: "ISO", pediatric: "PED" };
-
-    function renderRoomMap(beds) {
-      const grid = document.getElementById("rooms-grid");
-      const caption = document.getElementById("rooms-caption");
-      if (!beds || !beds.length) {
-        grid.innerHTML = '<div class="list-empty" style="grid-column:1/-1">No room data available.</div>';
-        return;
-      }
-      const available = beds.filter(b => !b.needsCleaning && b.status === "available").length;
-      const occupied  = beds.filter(b => b.status === "occupied").length;
-      const cleaning  = beds.filter(b => b.needsCleaning).length;
-      caption.textContent = `${beds.length} rooms · ${available} ready · ${occupied} occupied · ${cleaning} cleaning`;
-
-      grid.innerHTML = beds.map(bed => {
-        let cls = "room-card";
-        let statusText = "available";
-        let bodyHtml = "";
-        const typeAbbr = BED_TYPE_ABBR[bed.type] || bed.type.slice(0, 3).toUpperCase();
-
-        if (bed.needsCleaning) {
-          cls += " room-cleaning";
-          statusText = "cleaning";
-          bodyHtml = `<div class="room-meta" style="color:#b45309">Needs cleaning</div>`;
-        } else if (bed.status === "occupied" && bed.occupiedByPatient) {
-          const esi = ESI_NUM[bed.occupiedByPatient.triageLevel] || "?";
-          cls += ` room-occupied esi-${esi}`;
-          statusText = "occupied";
-          const firstName = (bed.occupiedByPatient.name || "-").split(" ")[0];
-          bodyHtml = `
-            <div class="room-patient">${escHtml(firstName)}</div>
-            <div class="room-meta">ESI ${esi} · ${escHtml(titleCase(bed.occupiedByPatient.triageLevel || ""))}</div>`;
-        } else {
-          cls += " room-available";
-          bodyHtml = `<div class="room-meta" style="color:#15803d">Ready</div>`;
-        }
-
-        return `
-          <div class="${cls}" id="room-${escHtml(bed.bedId)}">
-            <div class="room-header">
-              <span class="room-id">${escHtml(bed.room || bed.bedId)}</span>
-              <span class="room-type-badge">${typeAbbr}</span>
-            </div>
-            <div class="room-status-line">
-              <span class="room-dot"></span>
-              <span class="room-status-text">${statusText}</span>
-            </div>
-            ${bodyHtml}
-          </div>`;
-      }).join("");
-    }
-
-    function showToast(title, body, type = "success") {
-      const container = document.getElementById("toast-container");
-      const toast = document.createElement("div");
-      toast.className = `toast toast-${type}`;
-      toast.innerHTML = `<div class="toast-title">${escHtml(title)}</div><div class="toast-body">${escHtml(body)}</div>`;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 6000);
-    }
-
-    function flashRoom(bedId) {
-      const card = document.getElementById(`room-${bedId}`);
-      if (card) {
-        card.classList.remove("room-just-assigned");
-        void card.offsetWidth;
-        card.classList.add("room-just-assigned");
-      }
-    }
-
-    async function fetchStatus() {
-      try {
-        const res = await fetch("/api/er-status");
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-        document.getElementById("offline-bar").classList.remove("visible");
-        renderQueue(data.waiting || []);
-        renderStats(data.stats || {});
-        renderOperations(data.operations || {});
-        renderRoomMap(data.beds || []);
-      } catch {
-        document.getElementById("offline-bar").classList.add("visible");
-      }
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-    fetchStatus();
-    setInterval(fetchStatus, 30000);
   </script>
 </body>
 </html>
