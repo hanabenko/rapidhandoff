@@ -185,6 +185,8 @@ export function createApp() {
                         category: "cleaning",
                         title: `Clean room ${bed.room}`,
                         detail: `${titleCase(bed.type)} bed ${bed.bedId} is ready for turnover but blocked by cleaning.`,
+                        bedId: bed.bedId,
+                        room: bed.room,
                     })),
                     ...uncoveredPatientsNeedingNurse.map((patient) => ({
                         priority:
@@ -194,6 +196,8 @@ export function createApp() {
                         category: "paging",
                         title: `Page a nurse for ${patient.name ?? patient.patientId}`,
                         detail: `${patient.chiefComplaint ?? "Patient needs assessment"}${roomByPatientId.get(patient.patientId) ? ` in room ${roomByPatientId.get(patient.patientId)}` : " in the queue"} with ${titleCase(patient.triageLevel)} priority.`,
+                        patientId: patient.patientId,
+                        patientName: patient.name ?? patient.patientId,
                     })),
                     ...nurseShiftAlerts.slice(0, 4).map((staff) => ({
                         priority: staff.hoursOnShift >= 10 ? "high" : "medium",

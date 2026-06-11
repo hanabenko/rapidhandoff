@@ -308,6 +308,71 @@
       margin-top: 7px;
     }
 
+    .act-btn {
+      flex-shrink: 0;
+      background: rgba(79,142,247,0.12);
+      border: 1px solid rgba(79,142,247,0.35);
+      color: var(--accent);
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.12s, opacity 0.12s;
+      white-space: nowrap;
+    }
+    .act-btn:hover:not(:disabled) { background: rgba(79,142,247,0.22); }
+    .act-btn:disabled { opacity: 0.45; cursor: default; }
+    .act-btn.done {
+      background: rgba(34,197,94,0.12);
+      border-color: rgba(34,197,94,0.35);
+      color: #4ade80;
+    }
+    .act-btn.failed {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.35);
+      color: #fca5a5;
+    }
+
+    .action-trace {
+      margin-top: 10px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+    }
+    .action-log-entry {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      font-size: 0.7rem;
+      line-height: 1.5;
+      padding: 2px 0;
+    }
+    .action-log-entry + .action-log-entry { border-top: 1px solid rgba(255,255,255,0.04); }
+    .log-tag {
+      flex-shrink: 0;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .log-text { color: var(--muted); word-break: break-word; }
+    .log-tool .log-tag { background: rgba(79,142,247,0.18); color: var(--accent); }
+    .log-result .log-tag { background: rgba(234,179,8,0.15); color: #fcd34d; }
+    .log-text-ev .log-tag { background: rgba(168,85,247,0.15); color: #c4b5fd; }
+    .log-done .log-tag { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .log-error .log-tag { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .log-done .log-text, .log-error .log-text { color: var(--text); }
+
     @media (max-width: 720px) {
       .main-grid { grid-template-columns: 1fr; }
       .clock { font-size: 1.3rem; }
@@ -537,20 +602,112 @@
       target.innerHTML = items.map(renderer).join("");
     }
 
+    let pendingActions = [];
+
+    function buildActionPrompt(action) {
+      if (action.category === "cleaning") {
+        const bedInfo = action.bedId ? ` (bed ID: ${action.bedId})` : "";
+        return `Mark bed${bedInfo} in room ${action.room || action.bedId || "the ER"} as cleaned and ready for a new patient.`;
+      }
+      if (action.category === "paging") {
+        const idInfo = action.patientId ? ` (patient ID: ${action.patientId})` : "";
+        return `Page a nurse for patient ${action.patientName || "this patient"}${idInfo}. ${action.detail}`;
+      }
+      return `${action.title}. ${action.detail || ""}`.trim();
+    }
+
+    function addActionLog(trace, type, tag, text) {
+      trace.style.display = "block";
+      const entry = document.createElement("div");
+      entry.className = `action-log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-tag">${escHtml(tag)}</span><span class="log-text">${escHtml(text)}</span>`;
+      trace.appendChild(entry);
+      trace.scrollTop = trace.scrollHeight;
+    }
+
+    async function handleAction(index) {
+      const action = pendingActions[index];
+      if (!action) return;
+      const btn = document.getElementById(`act-btn-${index}`);
+      const trace = document.getElementById(`action-trace-${index}`);
+      if (!btn || !trace) return;
+
+      btn.disabled = true;
+      btn.textContent = "Working...";
+      trace.innerHTML = "";
+
+      const prompt = buildActionPrompt(action);
+
+      try {
+        const res = await fetch("/agent/orchestrate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: prompt }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "tool_call") {
+                addActionLog(trace, "tool", ev.agent || "agent", `→ ${ev.tool}`);
+              } else if (ev.type === "tool_result_detail") {
+                const preview = ev.text.length > 120 ? ev.text.slice(0, 120) + "…" : ev.text;
+                addActionLog(trace, "result", ev.agent || "result", preview);
+              } else if (ev.type === "text") {
+                addActionLog(trace, "text-ev", ev.agent || "agent", ev.text);
+              } else if (ev.type === "done") {
+                addActionLog(trace, "done", "Done", ev.response || "Action completed.");
+                btn.textContent = "Done";
+                btn.classList.add("done");
+                setTimeout(fetchStatus, 2500);
+              } else if (ev.type === "error") {
+                addActionLog(trace, "error", "Error", ev.message);
+                btn.textContent = "Retry";
+                btn.classList.add("failed");
+                btn.disabled = false;
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        addActionLog(trace, "error", "Error", err.message || "Connection failed");
+        btn.textContent = "Retry";
+        btn.classList.add("failed");
+        btn.disabled = false;
+      }
+    }
+
     function renderOperations(operations) {
-      renderList(
-        "next-actions",
-        operations.nextActions || [],
-        "No urgent next actions right now.",
-        (item) => `
-          <div class="list-item">
+      const actions = operations.nextActions || [];
+      pendingActions = actions;
+
+      const actionsContainer = document.getElementById("next-actions");
+      if (!actions.length) {
+        actionsContainer.innerHTML = '<div class="list-empty">No urgent next actions right now.</div>';
+      } else {
+        actionsContainer.innerHTML = actions.map((item, i) => `
+          <div class="list-item" id="action-item-${i}">
             <div class="list-title">
               <strong>${escHtml(item.title)}</strong>
               <span class="priority-badge priority-${item.priority || "low"}">${escHtml(item.category || "action")}</span>
+              <button class="act-btn" id="act-btn-${i}" onclick="handleAction(${i})">Handle</button>
             </div>
             <div class="list-detail">${escHtml(item.detail || "")}</div>
+            <div class="action-trace" id="action-trace-${i}"></div>
           </div>`
-      );
+        ).join("");
+      }
 
       renderList(
         "alerts-list",

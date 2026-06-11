@@ -7,6 +7,7 @@ import {
     assignStaffToPatientTool,
     getAvailableBedsTool,
     intakePatientTool,
+    markBedCleanedTool,
 } from "./actions.js";
 import {
     analyzeBedCapacityTool,
@@ -94,6 +95,23 @@ Report back in this format:
 
 ---
 
+## ACTION MODE - completing a specific ER operation
+
+When given a targeted action (not a full patient intake), execute it directly:
+
+### Bed cleaning
+If asked to mark a bed as cleaned:
+- Call mark_bed_cleaned with the specified bedId.
+- Confirm which bed is now ready for patient assignment.
+
+### Nurse paging
+If asked to page a nurse for an existing patient:
+- Call get_available_staff with roles: ["nurse", "charge_nurse"].
+- Call assign_staff_to_patient with the first available staff member and the given patientId.
+- Confirm which nurse was paged and assigned.
+
+---
+
 ## Safety constraints
 
 - Do not diagnose conditions or recommend treatments outside of triage routing.
@@ -113,5 +131,6 @@ Report back in this format:
         getAvailableBedsTool,
         assignPatientToBedTool,
         assignStaffToPatientTool,
+        markBedCleanedTool,
     ],
 });

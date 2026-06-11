@@ -307,6 +307,45 @@ export const getAvailableStaffTool = new FunctionTool({
     },
 });
 
+export const markBedCleanedTool = new FunctionTool({
+    name: "mark_bed_cleaned",
+    description:
+        "Mark a specific bed as cleaned and ready for a new patient. " +
+        "Clears the needsCleaning flag so the bed appears in get_available_beds results.",
+    parameters: z.object({
+        bedId: z.string().min(1).describe("The bed ID to mark as cleaned, e.g. B-012"),
+    }),
+    execute: async ({ bedId }) => {
+        try {
+            return await withDb(async (db) => {
+                const result = await db.collection("beds").updateOne(
+                    { bedId },
+                    { $set: { needsCleaning: false, updatedAt: new Date() } },
+                );
+                if (result.matchedCount === 0) {
+                    return { status: "error", message: `Bed ${bedId} not found.` };
+                }
+                await logEvent(db, {
+                    type: "bed_cleaned",
+                    bedId,
+                    severity: "info",
+                    message: `Bed ${bedId} marked as cleaned and ready for a new patient.`,
+                });
+                return {
+                    status: "ok",
+                    bedId,
+                    message: `Bed ${bedId} is now clean and ready for assignment.`,
+                };
+            });
+        } catch (error) {
+            return {
+                status: "error",
+                message: error instanceof Error ? error.message : "Failed to update bed.",
+            };
+        }
+    },
+});
+
 export const assignStaffToPatientTool = new FunctionTool({
     name: "assign_staff_to_patient",
     description:
