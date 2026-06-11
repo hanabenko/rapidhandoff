@@ -236,9 +236,36 @@ export function createApp() {
                         : []),
                 ].slice(0, 8);
 
+                const patientById = new Map(
+                    snapshot.patients.map((p) => [p.patientId, p]),
+                );
+                const beds = snapshot.beds
+                    .map((bed) => {
+                        const patient = bed.occupiedByPatientId
+                            ? patientById.get(bed.occupiedByPatientId)
+                            : undefined;
+                        return {
+                            bedId: bed.bedId,
+                            room: bed.room ?? bed.bedId,
+                            type: bed.type,
+                            status: bed.status,
+                            needsCleaning: bed.needsCleaning ?? false,
+                            hasMonitor: bed.hasMonitor ?? false,
+                            occupiedByPatient: patient
+                                ? {
+                                      patientId: patient.patientId,
+                                      name: patient.name ?? "-",
+                                      triageLevel: patient.triageLevel,
+                                  }
+                                : null,
+                        };
+                    })
+                    .sort((a, b) => a.room.localeCompare(b.room));
+
                 response.json({
                     capturedAt: snapshot.capturedAt,
                     waiting,
+                    beds,
                     operations: {
                         roomsToClean,
                         uncoveredPatientsNeedingNurse: uncoveredPatientsNeedingNurse.map(

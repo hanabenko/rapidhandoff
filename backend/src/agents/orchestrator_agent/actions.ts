@@ -307,6 +307,69 @@ export const getAvailableStaffTool = new FunctionTool({
     },
 });
 
+const TRIAGE_PRIORITY: Record<string, number> = {
+    critical: 1,
+    emergent: 2,
+    urgent: 3,
+    less_urgent: 4,
+    non_urgent: 5,
+};
+
+export const getWaitingPatientsTool = new FunctionTool({
+    name: "get_waiting_patients",
+    description:
+        "Get patients currently waiting for a bed, sorted by triage priority (most critical first). " +
+        "Use after cleaning a bed to find who to assign there next.",
+    parameters: z.object({
+        limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(10)
+            .default(3)
+            .describe("Maximum number of waiting patients to return."),
+    }),
+    execute: async ({ limit }) => {
+        try {
+            return await withDb(async (db) => {
+                const patients = await db
+                    .collection("patients")
+                    .find({ status: "waiting" })
+                    .toArray();
+
+                const sorted = patients
+                    .sort((a, b) => {
+                        const ap = TRIAGE_PRIORITY[a.triageLevel as string] ?? 99;
+                        const bp = TRIAGE_PRIORITY[b.triageLevel as string] ?? 99;
+                        if (ap !== bp) return ap - bp;
+                        return (
+                            new Date(a.arrivalTime as string).getTime() -
+                            new Date(b.arrivalTime as string).getTime()
+                        );
+                    })
+                    .slice(0, limit);
+
+                return {
+                    status: "ok",
+                    waitingCount: patients.length,
+                    patients: sorted.map((p) => ({
+                        patientId: p.patientId,
+                        name: p.name ?? "-",
+                        triageLevel: p.triageLevel,
+                        chiefComplaint: p.chiefComplaint ?? "Unknown",
+                        recommendedBedType: p.recommendedBedType ?? "exam",
+                    })),
+                };
+            });
+        } catch (error) {
+            return {
+                status: "error",
+                message: error instanceof Error ? error.message : "Failed to query patients.",
+            };
+        }
+    },
+});
+
 export const markBedCleanedTool = new FunctionTool({
     name: "mark_bed_cleaned",
     description:

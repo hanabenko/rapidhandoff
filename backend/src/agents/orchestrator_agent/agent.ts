@@ -6,6 +6,7 @@ import {
     assignPatientToBedTool,
     assignStaffToPatientTool,
     getAvailableBedsTool,
+    getWaitingPatientsTool,
     intakePatientTool,
     markBedCleanedTool,
 } from "./actions.js";
@@ -99,10 +100,12 @@ Report back in this format:
 
 When given a targeted action (not a full patient intake), execute it directly:
 
-### Bed cleaning
-If asked to mark a bed as cleaned:
-- Call mark_bed_cleaned with the specified bedId.
-- Confirm which bed is now ready for patient assignment.
+### Bed cleaning + patient assignment
+If asked to clean a bed (and optionally assign a patient):
+1. Call mark_bed_cleaned with the specified bedId.
+2. Call get_waiting_patients to find the highest priority patient waiting for a bed.
+3. If a patient is waiting, call assign_patient_to_bed using their patientId and the newly cleaned bedId.
+4. Report: bed cleaned, patient assigned (name, ESI level, room), or "no waiting patients" if queue is empty.
 
 ### Nurse paging
 If asked to page a nurse for an existing patient:
@@ -132,5 +135,6 @@ If asked to page a nurse for an existing patient:
         assignPatientToBedTool,
         assignStaffToPatientTool,
         markBedCleanedTool,
+        getWaitingPatientsTool,
     ],
 });
