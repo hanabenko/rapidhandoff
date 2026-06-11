@@ -34,6 +34,7 @@ export const reportingAgentOutputSchema = z.object({
     operationalSummary: z.string().min(1).max(1500),
     dashboardStatus: dashboardStatusSchema,
     criticalAlerts: z.array(z.string().min(1).max(300)).max(10),
+    appliedRules: z.array(z.string()).default([]),
 });
 
 export type ReportingAgentInput = z.infer<typeof reportingAgentInputSchema>;

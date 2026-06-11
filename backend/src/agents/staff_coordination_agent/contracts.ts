@@ -11,6 +11,7 @@ export const staffRoleSchema = z.enum([
 export const staffCandidateSchema = z.object({
     staffId: z.string().min(1),
     role: staffRoleSchema,
+    specialty: z.string().min(1).optional(),
     shift: z.enum(["day", "evening", "night"]),
     available: z.boolean(),
 });
@@ -28,6 +29,7 @@ export const staffCoordinationAgentInputSchema = z.object({
     ]),
     assignedBedId: z.string().min(1),
     candidateStaff: z.array(staffCandidateSchema).max(20),
+    preferredSpecialties: z.array(z.string().min(1)).max(5).default([]),
     preferredShift: z.enum(["day", "evening", "night"]).optional(),
 });
 
@@ -38,6 +40,7 @@ export const staffCoordinationAgentOutputSchema = z.object({
     assignedRoles: z.array(staffRoleSchema).max(5),
     alertMessage: z.string().min(1).max(1000),
     rationale: z.string().min(1).max(1000),
+    appliedRules: z.array(z.string()).default([]),
 });
 
 export type StaffCoordinationAgentInput = z.infer<

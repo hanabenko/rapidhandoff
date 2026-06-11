@@ -557,6 +557,137 @@ textarea {
     gap: 20px;
 }
 
+.timeline-panel {
+    padding: 28px;
+}
+
+.workflow-code {
+    max-width: 260px;
+    overflow: hidden;
+    color: #547060;
+    font-size: 0.7rem;
+    text-overflow: ellipsis;
+}
+
+.timeline-list {
+    display: grid;
+    gap: 0;
+}
+
+.timeline-step {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 15px;
+    position: relative;
+    padding-bottom: 22px;
+}
+
+.timeline-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 32px;
+    bottom: 0;
+    left: 16px;
+    width: 1px;
+    background: #ced9d1;
+}
+
+.timeline-order {
+    display: grid;
+    z-index: 1;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: #fff;
+    background: #173f2c;
+    font-size: 0.75rem;
+    font-weight: 900;
+}
+
+.timeline-copy {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.timeline-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.timeline-title strong {
+    font-size: 0.88rem;
+    text-transform: capitalize;
+}
+
+.timeline-copy p {
+    margin: 0;
+    color: #6b786f;
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+
+.timeline-copy .timeline-output {
+    color: #2d3e34;
+    font-weight: 700;
+}
+
+.rule-list,
+.tool-action-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.rule-list span {
+    border-radius: 999px;
+    color: #41604e;
+    background: #e7efe9;
+    padding: 5px 8px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+
+.tool-action-list code {
+    border: 1px solid #dce1dc;
+    border-radius: 7px;
+    color: #53665b;
+    background: #fafbf8;
+    padding: 5px 7px;
+    font-size: 0.64rem;
+}
+
+.evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    border-top: 1px solid #e0e4e0;
+    padding-top: 20px;
+}
+
+.evidence-grid span {
+    display: grid;
+    gap: 5px;
+    color: #718078;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.evidence-grid strong {
+    overflow: hidden;
+    color: #26372e;
+    font-size: 0.76rem;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    text-transform: none;
+}
+
 .handoff-list {
     margin: 0;
 }
@@ -694,6 +825,10 @@ textarea {
     }
 
     .metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .evidence-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 

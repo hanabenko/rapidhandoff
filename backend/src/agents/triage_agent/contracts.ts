@@ -26,6 +26,8 @@ export const triageAgentInputSchema = z.object({
 
 export const triageAgentOutputSchema = z.object({
     patientId: z.string().min(1),
+    // Vertex response schemas reject unions of numeric literal enums.
+    esiLevel: z.number().int().min(1).max(5).optional(),
     severity: z.enum(["critical", "high", "moderate", "low"]),
     urgency: z.enum(["immediate", "expedited", "standard"]),
     routingPriority: z.enum([
@@ -38,6 +40,7 @@ export const triageAgentOutputSchema = z.object({
     recommendedBedType: bedTypeSchema,
     requiresMonitor: z.boolean(),
     rationale: z.string().min(1).max(1000),
+    appliedRules: z.array(z.string()).default([]),
 });
 
 export type TriageAgentInput = z.infer<typeof triageAgentInputSchema>;

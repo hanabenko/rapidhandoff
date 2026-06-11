@@ -21,8 +21,8 @@ export function createStaffCoordinationAgent(options: {
 
 You receive the assigned bed, routing priority, and a list of currently
 available staff. Choose the smallest appropriate team that covers the workflow,
-prioritize available physicians and nurses when needed, and draft a concise
-operational alert.
+prioritize available physicians and nurses when needed, prefer matching
+specialties, and draft a concise operational alert.
 
 Return JSON that matches the schema exactly.
 Do not invent unavailable staff members.`,

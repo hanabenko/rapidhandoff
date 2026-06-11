@@ -55,7 +55,28 @@ export interface ReportingSummary {
 export interface OrchestrateResponse {
     agent: string;
     response: string;
+    workflowId?: string;
     traceId?: string;
+    agentTimeline?: Array<{
+        order: number;
+        agent: string;
+        status: "completed" | "waitlisted" | "deferred";
+        inputSummary: string;
+        outputSummary: string;
+        appliedRules: string[];
+        toolActions: Array<{
+            tool: string;
+            status: string;
+        }>;
+    }>;
+    executionEvidence?: {
+        patientRecordId: string;
+        patientWriteStatus: string;
+        bedAssignmentStatus: string;
+        staffAssignmentStatus: string;
+        workflowId: string;
+        traceId?: string;
+    };
     workflow?: {
         triage: TriageDecision;
         bedAssignment: BedAssignment;

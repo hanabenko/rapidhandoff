@@ -5,6 +5,7 @@ import test from "node:test";
 import { AgentTool } from "@google/adk";
 
 import { rootAgent, rootSynthesisAgent } from "./agent.js";
+import { triageAgent } from "../triage_agent/agent.js";
 import { loadErSnapshot, type MongoErRepository } from "./data.js";
 import { createMongoWorkflowTools } from "./workflow-tools.js";
 
@@ -113,4 +114,12 @@ test("delegated agent schemas avoid Vertex-unsupported exclusiveMinimum", async 
 
 test("root synthesis agent does not resend delegated tool schemas", async () => {
     assert.deepEqual(await rootSynthesisAgent.canonicalTools(), []);
+});
+
+test("triage response schema uses a Vertex-compatible bounded ESI integer", () => {
+    const serialized = JSON.stringify(triageAgent.outputSchema);
+
+    assert.doesNotMatch(serialized, /"anyOf"/);
+    assert.match(serialized, /"minimum":1/);
+    assert.match(serialized, /"maximum":5/);
 });

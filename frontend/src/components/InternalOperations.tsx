@@ -195,6 +195,124 @@ export function InternalOperations({
                 </section>
             </div>
 
+            <section className="panel timeline-panel">
+                <div className="panel-heading status-heading">
+                    <div>
+                        <p className="eyebrow">Decision trace</p>
+                        <h2>Agent timeline</h2>
+                    </div>
+                    {latestResult?.workflowId && (
+                        <code className="workflow-code">
+                            {latestResult.workflowId}
+                        </code>
+                    )}
+                </div>
+
+                {latestResult?.agentTimeline?.length ? (
+                    <>
+                        <div className="timeline-list">
+                            {latestResult.agentTimeline.map((step) => (
+                                <article
+                                    className="timeline-step"
+                                    key={`${step.order}-${step.agent}`}
+                                >
+                                    <span className="timeline-order">
+                                        {step.order}
+                                    </span>
+                                    <div className="timeline-copy">
+                                        <div className="timeline-title">
+                                            <strong>
+                                                {titleCase(step.agent)}
+                                            </strong>
+                                            <span
+                                                className={`status-pill ${
+                                                    step.status === "completed"
+                                                        ? "available"
+                                                        : "waiting"
+                                                }`}
+                                            >
+                                                {step.status}
+                                            </span>
+                                        </div>
+                                        <p>{step.inputSummary}</p>
+                                        <p className="timeline-output">
+                                            {step.outputSummary}
+                                        </p>
+                                        <div className="rule-list">
+                                            {step.appliedRules.map((rule) => (
+                                                <span key={rule}>
+                                                    {titleCase(rule)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        {step.toolActions.length > 0 && (
+                                            <div className="tool-action-list">
+                                                {step.toolActions.map(
+                                                    (action) => (
+                                                        <code
+                                                            key={`${action.tool}-${action.status}`}
+                                                        >
+                                                            {action.tool}:{" "}
+                                                            {action.status}
+                                                        </code>
+                                                    ),
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+
+                        {latestResult.executionEvidence && (
+                            <div className="evidence-grid">
+                                <span>
+                                    Patient record
+                                    <strong>
+                                        {
+                                            latestResult.executionEvidence
+                                                .patientRecordId
+                                        }
+                                    </strong>
+                                </span>
+                                <span>
+                                    Patient write
+                                    <strong>
+                                        {
+                                            latestResult.executionEvidence
+                                                .patientWriteStatus
+                                        }
+                                    </strong>
+                                </span>
+                                <span>
+                                    Bed write
+                                    <strong>
+                                        {
+                                            latestResult.executionEvidence
+                                                .bedAssignmentStatus
+                                        }
+                                    </strong>
+                                </span>
+                                <span>
+                                    Staff write
+                                    <strong>
+                                        {
+                                            latestResult.executionEvidence
+                                                .staffAssignmentStatus
+                                        }
+                                    </strong>
+                                </span>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className="compact-empty">
+                        Complete an intake to inspect delegated agent decisions,
+                        enforced constraints, and MCP tool actions.
+                    </div>
+                )}
+            </section>
+
             <StatusView
                 status={status}
                 isLoading={isLoading}

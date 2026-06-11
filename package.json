@@ -13,7 +13,7 @@
         "frontend:typecheck": "pnpm --dir frontend typecheck",
         "smoke:mcp": "tsx backend/src/smoke/mongodb-mcp.ts",
         "start": "node dist/server.js",
-        "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts backend/src/agents/orchestrator_agent/workflow-tools.test.ts backend/src/agents/orchestrator_agent/delegation.test.ts backend/src/agents/contracts.test.ts backend/src/mcp/config.test.ts backend/src/mcp/mongodb.test.ts backend/src/mcp/phoenix.test.ts backend/src/observability/tracing.test.ts backend/src/operations.test.ts backend/src/demo/critical-patient-workflow.test.ts",
+        "test": "tsx --test backend/src/agents/orchestrator_agent/tools.test.ts backend/src/agents/orchestrator_agent/workflow-tools.test.ts backend/src/agents/orchestrator_agent/delegation.test.ts backend/src/agents/guardrails.test.ts backend/src/agents/contracts.test.ts backend/src/mcp/config.test.ts backend/src/mcp/mongodb.test.ts backend/src/mcp/phoenix.test.ts backend/src/observability/tracing.test.ts backend/src/operations.test.ts backend/src/demo/critical-patient-workflow.test.ts",
         "verify:phoenix": "tsx backend/src/smoke/phoenix-traces.ts",
         "typecheck": "tsc --noEmit"
     },

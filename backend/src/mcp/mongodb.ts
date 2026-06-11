@@ -63,6 +63,7 @@ export interface StaffMember {
     staffId: string;
     name?: string;
     role: "physician" | "nurse" | "charge_nurse" | "paramedic" | "tech";
+    specialty?: string;
     available: boolean;
     currentAssignment: string | null;
     shift: "day" | "evening" | "night";
@@ -125,6 +126,7 @@ const staffSchema = z.object({
     staffId: z.string(),
     name: z.string().optional(),
     role: z.enum(["physician", "nurse", "charge_nurse", "paramedic", "tech"]),
+    specialty: z.string().optional(),
     available: z.boolean(),
     currentAssignment: z.string().nullable().default(null),
     shift: z.enum(["day", "evening", "night"]),

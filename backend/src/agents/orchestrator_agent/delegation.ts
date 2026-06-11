@@ -5,6 +5,7 @@ import {
     type Event,
     type LlmAgent,
 } from "@google/adk";
+import { randomUUID } from "node:crypto";
 
 import {
     buildBedCapacityAnalysis,
@@ -28,24 +29,28 @@ import {
     type BedManagementAgentOutput,
 } from "../bed_management_agent/contracts.js";
 import { bedManagementAgent } from "../bed_management_agent/agent.js";
+import { applyBedGuardrails } from "../bed_management_agent/guardrails.js";
 import {
     reportingAgentInputSchema,
     type ReportingAgentInput,
     type ReportingAgentOutput,
 } from "../reporting_agent/contracts.js";
 import { reportingAgent } from "../reporting_agent/agent.js";
+import { applyReportingGuardrails } from "../reporting_agent/guardrails.js";
 import {
     staffCoordinationAgentInputSchema,
     type StaffCoordinationAgentInput,
     type StaffCoordinationAgentOutput,
 } from "../staff_coordination_agent/contracts.js";
 import { staffCoordinationAgent } from "../staff_coordination_agent/agent.js";
+import { applyStaffGuardrails } from "../staff_coordination_agent/guardrails.js";
 import {
     triageAgentInputSchema,
     type TriageAgentInput,
     type TriageAgentOutput,
 } from "../triage_agent/contracts.js";
 import { triageAgent } from "../triage_agent/agent.js";
+import { applyTriageGuardrails } from "../triage_agent/guardrails.js";
 import { getMongoErRepository, type MongoErRepository } from "./data.js";
 import {
     buildBedAssignmentTraceAttributes,
@@ -64,7 +69,31 @@ export interface DelegationLog {
     output: Record<string, unknown>;
 }
 
+export interface AgentTimelineStep {
+    order: number;
+    agent: string;
+    status: "completed" | "waitlisted" | "deferred";
+    inputSummary: string;
+    outputSummary: string;
+    appliedRules: string[];
+    toolActions: Array<{
+        tool: string;
+        status: string;
+    }>;
+}
+
+export interface ExecutionEvidence {
+    patientRecordId: string;
+    patientWriteStatus: string;
+    bedAssignmentStatus: string;
+    staffAssignmentStatus: string;
+    workflowId: string;
+}
+
 export interface DelegatedWorkflowResult {
+    workflowId: string;
+    executionMode: AgentExecutionMode;
+    modelCallCount: number;
     response: string;
     workflow: {
         triage: TriageAgentOutput;
@@ -73,6 +102,8 @@ export interface DelegatedWorkflowResult {
         reporting: ReportingAgentOutput;
     };
     delegations: DelegationLog[];
+    agentTimeline: AgentTimelineStep[];
+    executionEvidence: ExecutionEvidence;
     toolCalls: Array<{
         name?: string;
         args?: Record<string, unknown>;
@@ -109,7 +140,10 @@ type StructuredAgentMap = {
 export interface MultiAgentDependencies {
     repository?: MongoErRepository;
     agents?: Partial<StructuredAgentMap>;
+    executionMode?: AgentExecutionMode;
 }
+
+export type AgentExecutionMode = "adaptive" | "policy" | "full_llm";
 
 interface StructuredAgentRunResult<TOutput> {
     output: TOutput;
@@ -120,6 +154,13 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
     return value && typeof value === "object" && !Array.isArray(value)
         ? (value as Record<string, unknown>)
         : undefined;
+}
+
+function resultStatus(result: unknown, fallback: string): string {
+    return (
+        (asObject(result)?.status as string | undefined) ??
+        fallback
+    );
 }
 
 function parseContext(input: {
@@ -259,6 +300,130 @@ async function runDelegation<TInput extends Record<string, unknown>, TOutput>(
     };
 }
 
+async function runPolicyDelegation<
+    TInput extends Record<string, unknown>,
+    TOutput,
+>(
+    name: string,
+    agentName: string,
+    input: TInput,
+    decide: () => TOutput,
+): Promise<{ output: TOutput; log: DelegationLog }> {
+    await withWorkflowSpan(
+        workflowSpanNames.delegationStart,
+        {
+            ...buildDelegationStartAttributes(name, input),
+            "rapid_handoff.delegation_engine": "deterministic_policy",
+        },
+        async () => undefined,
+    );
+
+    const output = decide();
+
+    await withWorkflowSpan(
+        workflowSpanNames.delegationOutput,
+        {
+            ...buildDelegationOutputAttributes(name, output),
+            "rapid_handoff.delegation_engine": "deterministic_policy",
+        },
+        async () => undefined,
+    );
+    await withWorkflowSpan(
+        workflowSpanNames.delegationCompletion,
+        {
+            ...buildDelegationCompletionAttributes(name, output),
+            "rapid_handoff.delegation_engine": "deterministic_policy",
+        },
+        async () => undefined,
+    );
+
+    return {
+        output,
+        log: {
+            agent: agentName,
+            input,
+            output: asObject(output) ?? { result: output },
+        },
+    };
+}
+
+function buildPolicyTriageProposal(
+    input: TriageAgentInput,
+): TriageAgentOutput {
+    return {
+        patientId: input.patientId,
+        severity: "moderate",
+        urgency: "standard",
+        routingPriority: "standard_bed",
+        recommendedBedType: input.requestedBedType ?? "exam",
+        requiresMonitor: input.requiresMonitor ?? false,
+        rationale:
+            "Applied the configured ESI intake policy to the reported acuity and vital-sign constraints.",
+        appliedRules: [],
+    };
+}
+
+function buildPolicyBedProposal(
+    input: BedManagementAgentInput,
+): BedManagementAgentOutput {
+    const candidate = input.candidateBeds[0];
+    return {
+        patientId: input.patientId,
+        assignmentStatus: candidate ? "assigned" : "waitlisted",
+        selectedBedId: candidate?.bedId ?? null,
+        selectedBedType: candidate?.type ?? input.recommendedBedType,
+        rationale: candidate
+            ? "Selected from the repository-provided eligible bed candidates."
+            : "No eligible bed candidate is currently available.",
+        estimatedWaitMinutes: candidate ? 0 : 15,
+        appliedRules: [],
+    };
+}
+
+function buildPolicyStaffProposal(
+    input: StaffCoordinationAgentInput,
+): StaffCoordinationAgentOutput {
+    return {
+        patientId: input.patientId,
+        assignmentStatus: "deferred",
+        assignedStaffIds: [],
+        assignedRoles: [],
+        alertMessage: `Evaluate available role coverage for ${input.assignedBedId}.`,
+        rationale:
+            "Role, specialty, shift, and availability constraints determine the assignment.",
+        appliedRules: [],
+    };
+}
+
+function buildPolicyReportingProposal(
+    input: ReportingAgentInput,
+): ReportingAgentOutput {
+    const bedSummary =
+        input.bedAssignment.selectedBedId === null
+            ? `waitlisted for ${input.bedAssignment.selectedBedType}`
+            : `assigned to ${input.bedAssignment.selectedBedId}`;
+    const staffSummary =
+        input.staffAssignment.assignedStaffIds.length === 0
+            ? "staff assignment pending"
+            : `${input.staffAssignment.assignedStaffIds.length} staff assigned`;
+
+    return {
+        patientId: input.patientId,
+        operationalSummary: `ESI ${input.triage.esiLevel ?? "unassigned"} ${input.triage.severity} intake; ${bedSummary}; ${staffSummary}.`,
+        dashboardStatus: {
+            patientId: input.patientId,
+            triageSeverity: input.triage.severity,
+            routingPriority: input.triage.routingPriority,
+            bedId: input.bedAssignment.selectedBedId,
+            assignedStaffIds: input.staffAssignment.assignedStaffIds,
+            estimatedWaitMinutes:
+                input.bedAssignment.estimatedWaitMinutes,
+        },
+        criticalAlerts: [],
+        appliedRules: [],
+    };
+}
+
 function candidateBedType(
     routingPriority: TriageAgentOutput["routingPriority"],
     recommendedBedType: WorkflowContext["requestedBedType"] | TriageAgentOutput["recommendedBedType"],
@@ -276,6 +441,18 @@ function candidateRoles(
         return ["physician", "nurse"];
     }
     return ["nurse"];
+}
+
+function preferredSpecialties(
+    routingPriority: TriageAgentOutput["routingPriority"],
+): string[] {
+    if (
+        routingPriority === "resuscitation" ||
+        routingPriority === "trauma_bay"
+    ) {
+        return ["emergency", "trauma"];
+    }
+    return ["emergency"];
 }
 
 export async function runDelegatedErWorkflow(
@@ -305,6 +482,16 @@ export async function runDelegatedErWorkflow(
     const delegations: DelegationLog[] = [];
     const toolCalls: DelegatedWorkflowResult["toolCalls"] = [];
     const toolResponses: DelegatedWorkflowResult["toolResponses"] = [];
+    const workflowId = randomUUID();
+    const executionMode =
+        dependencies.executionMode ??
+        (dependencies.agents
+            ? "full_llm"
+            : process.env.ER_AGENT_EXECUTION_MODE === "full_llm" ||
+                process.env.ER_AGENT_EXECUTION_MODE === "policy"
+              ? process.env.ER_AGENT_EXECUTION_MODE
+              : "adaptive");
+    let modelCallCount = 0;
 
     return withWorkflowSpan(
         workflowSpanNames.orchestrationWorkflow,
@@ -330,6 +517,7 @@ export async function runDelegatedErWorkflow(
                 name: "upsert_patient_intake",
                 response: intakeResult,
             });
+            const patientWriteStatus = resultStatus(intakeResult, "written");
 
             const triageInput: TriageAgentInput = {
                 patientId: workflowContext.patientId,
@@ -341,10 +529,31 @@ export async function runDelegatedErWorkflow(
                 requestedBedType: workflowContext.requestedBedType,
                 requiresMonitor: workflowContext.requiresMonitor,
             };
-            const triage = await runDelegation<
-                TriageAgentInput,
-                TriageAgentOutput
-            >("triage", agents.triage, userId, triageInput);
+            const useTriageModel =
+                executionMode === "full_llm" ||
+                (executionMode === "adaptive" &&
+                    !triageInput.reportedTriageLevel);
+            const triage = useTriageModel
+                ? await runDelegation<TriageAgentInput, TriageAgentOutput>(
+                      "triage",
+                      agents.triage,
+                      userId,
+                      triageInput,
+                  )
+                : await runPolicyDelegation<
+                      TriageAgentInput,
+                      TriageAgentOutput
+                  >("triage", agents.triage.name, triageInput, () =>
+                      buildPolicyTriageProposal(triageInput),
+                  );
+            if (useTriageModel) {
+                modelCallCount += 1;
+            }
+            triage.output = applyTriageGuardrails(
+                triageInput,
+                triage.output,
+            );
+            triage.log.output = asObject(triage.output) ?? {};
             delegations.push(triage.log);
 
             const availableBeds = await repository.getAvailableBeds({
@@ -396,26 +605,26 @@ export async function runDelegatedErWorkflow(
                     }),
                 ),
             };
-            const bed = await runDelegation<
-                BedManagementAgentInput,
-                BedManagementAgentOutput
-            >("bed_management", agents.bed, userId, bedInput);
-
-            if (availableBeds.length === 0) {
-                bed.output = {
-                    ...bed.output,
-                    assignmentStatus: "waitlisted",
-                    selectedBedId: null,
-                    selectedBedType: bedInput.recommendedBedType,
-                    estimatedWaitMinutes: Math.max(
-                        bed.output.estimatedWaitMinutes,
-                        15,
-                    ),
-                    rationale:
-                        "No eligible bed is currently available. Patient remains queued for the next appropriate bed.",
-                };
-                bed.log.output = asObject(bed.output) ?? {};
+            const bed =
+                executionMode === "full_llm"
+                    ? await runDelegation<
+                          BedManagementAgentInput,
+                          BedManagementAgentOutput
+                      >("bed_management", agents.bed, userId, bedInput)
+                    : await runPolicyDelegation<
+                          BedManagementAgentInput,
+                          BedManagementAgentOutput
+                      >(
+                          "bed_management",
+                          agents.bed.name,
+                          bedInput,
+                          () => buildPolicyBedProposal(bedInput),
+                      );
+            if (executionMode === "full_llm") {
+                modelCallCount += 1;
             }
+            bed.output = applyBedGuardrails(bedInput, bed.output);
+            bed.log.output = asObject(bed.output) ?? {};
             delegations.push(bed.log);
 
             const selectedBed = availableBeds.find(
@@ -431,6 +640,8 @@ export async function runDelegatedErWorkflow(
                 output: StaffCoordinationAgentOutput;
                 log: DelegationLog;
             };
+            let bedAssignmentStatus = "waitlisted";
+            let staffAssignmentStatus = "deferred";
             if (selectedBed && bed.output.selectedBedId) {
                 const bedAssignmentInput = {
                     patientId: workflowContext.patientId,
@@ -452,6 +663,10 @@ export async function runDelegatedErWorkflow(
                     name: "assign_patient_to_bed",
                     response: bedAssignmentResult,
                 });
+                bedAssignmentStatus = resultStatus(
+                    bedAssignmentResult,
+                    "assigned",
+                );
 
                 const availableStaff = await repository.getAvailableStaff({
                     roles: candidateRoles(triage.output.severity),
@@ -477,38 +692,76 @@ export async function runDelegatedErWorkflow(
                     urgency: triage.output.urgency,
                     routingPriority: triage.output.routingPriority,
                     assignedBedId: bed.output.selectedBedId,
+                    preferredSpecialties: preferredSpecialties(
+                        triage.output.routingPriority,
+                    ),
                     candidateStaff: availableStaff.map((member) => ({
                         staffId: member.staffId,
                         role: member.role,
+                        specialty: member.specialty,
                         shift: member.shift,
                         available: member.available,
                     })),
                     preferredShift: workflowContext.preferredShift,
                 };
-                staff = await runDelegation<
-                    StaffCoordinationAgentInput,
-                    StaffCoordinationAgentOutput
-                >("staff_coordination", agents.staff, userId, staffInput);
+                staff =
+                    executionMode === "full_llm"
+                        ? await runDelegation<
+                              StaffCoordinationAgentInput,
+                              StaffCoordinationAgentOutput
+                          >(
+                              "staff_coordination",
+                              agents.staff,
+                              userId,
+                              staffInput,
+                          )
+                        : await runPolicyDelegation<
+                              StaffCoordinationAgentInput,
+                              StaffCoordinationAgentOutput
+                          >(
+                              "staff_coordination",
+                              agents.staff.name,
+                              staffInput,
+                              () => buildPolicyStaffProposal(staffInput),
+                          );
+                if (executionMode === "full_llm") {
+                    modelCallCount += 1;
+                }
+                staff.output = applyStaffGuardrails(
+                    staffInput,
+                    staff.output,
+                );
+                staff.log.output = asObject(staff.output) ?? {};
                 delegations.push(staff.log);
 
-                const staffAssignmentInput = {
-                    patientId: workflowContext.patientId,
-                    staffIds: staff.output.assignedStaffIds,
-                };
-                const staffAssignmentResult = await withWorkflowSpan(
-                    workflowSpanNames.staffAssignment,
-                    buildStaffAssignmentTraceAttributes(staffAssignmentInput),
-                    async () =>
-                        repository.assignStaffToPatient(staffAssignmentInput),
-                );
-                toolCalls.push({
-                    name: "assign_staff_to_patient",
-                    args: staffAssignmentInput,
-                });
-                toolResponses.push({
-                    name: "assign_staff_to_patient",
-                    response: staffAssignmentResult,
-                });
+                if (staff.output.assignmentStatus === "assigned") {
+                    const staffAssignmentInput = {
+                        patientId: workflowContext.patientId,
+                        staffIds: staff.output.assignedStaffIds,
+                    };
+                    const staffAssignmentResult = await withWorkflowSpan(
+                        workflowSpanNames.staffAssignment,
+                        buildStaffAssignmentTraceAttributes(
+                            staffAssignmentInput,
+                        ),
+                        async () =>
+                            repository.assignStaffToPatient(
+                                staffAssignmentInput,
+                            ),
+                    );
+                    toolCalls.push({
+                        name: "assign_staff_to_patient",
+                        args: staffAssignmentInput,
+                    });
+                    toolResponses.push({
+                        name: "assign_staff_to_patient",
+                        response: staffAssignmentResult,
+                    });
+                    staffAssignmentStatus = resultStatus(
+                        staffAssignmentResult,
+                        "assigned",
+                    );
+                }
             } else {
                 const deferredStaff: StaffCoordinationAgentOutput = {
                     patientId: workflowContext.patientId,
@@ -519,6 +772,7 @@ export async function runDelegatedErWorkflow(
                         "Staff assignment deferred until an eligible bed becomes available.",
                     rationale:
                         "Avoid reserving treatment staff while the patient remains in the bed queue.",
+                    appliedRules: ["bed_capacity_dependency"],
                 };
                 staff = {
                     output: deferredStaff,
@@ -550,10 +804,35 @@ export async function runDelegatedErWorkflow(
                     snapshot,
                 ) as Record<string, unknown>,
             };
-            const reporting = await runDelegation<
-                ReportingAgentInput,
-                ReportingAgentOutput
-            >("reporting", agents.reporting, userId, reportingInput);
+            const reporting =
+                executionMode === "full_llm"
+                    ? await runDelegation<
+                          ReportingAgentInput,
+                          ReportingAgentOutput
+                      >(
+                          "reporting",
+                          agents.reporting,
+                          userId,
+                          reportingInput,
+                      )
+                    : await runPolicyDelegation<
+                          ReportingAgentInput,
+                          ReportingAgentOutput
+                      >(
+                          "reporting",
+                          agents.reporting.name,
+                          reportingInput,
+                          () =>
+                              buildPolicyReportingProposal(reportingInput),
+                      );
+            if (executionMode === "full_llm") {
+                modelCallCount += 1;
+            }
+            reporting.output = applyReportingGuardrails(
+                reportingInput,
+                reporting.output,
+            );
+            reporting.log.output = asObject(reporting.output) ?? {};
             delegations.push(reporting.log);
 
             const rootInput: RootOrchestratorAgentInput = {
@@ -564,13 +843,134 @@ export async function runDelegatedErWorkflow(
                 staffAssignment: staff.output,
                 reporting: reporting.output,
             };
-            const root = await runDelegation<
-                RootOrchestratorAgentInput,
-                RootOrchestratorAgentOutput
-            >("root_orchestrator", agents.root, userId, rootInput);
+            const root =
+                executionMode === "full_llm"
+                    ? await runDelegation<
+                          RootOrchestratorAgentInput,
+                          RootOrchestratorAgentOutput
+                      >(
+                          "root_orchestrator",
+                          agents.root,
+                          userId,
+                          rootInput,
+                      )
+                    : await runPolicyDelegation<
+                          RootOrchestratorAgentInput,
+                          RootOrchestratorAgentOutput
+                      >(
+                          "root_orchestrator",
+                          agents.root.name,
+                          rootInput,
+                          () => ({
+                              response:
+                                  reporting.output.operationalSummary,
+                          }),
+                      );
+            if (executionMode === "full_llm") {
+                modelCallCount += 1;
+            }
             delegations.push(root.log);
 
+            const agentTimeline: AgentTimelineStep[] = [
+                {
+                    order: 1,
+                    agent: "triage_agent",
+                    status: "completed",
+                    inputSummary: `Intake ${workflowContext.patientId}; reported acuity ${workflowContext.triageLevel ?? "unspecified"}.`,
+                    outputSummary: `ESI ${triage.output.esiLevel ?? "unassigned"}; ${triage.output.severity} severity; ${triage.output.routingPriority}.`,
+                    appliedRules: triage.output.appliedRules,
+                    toolActions: [
+                        {
+                            tool: "upsert_patient_intake",
+                            status: patientWriteStatus,
+                        },
+                    ],
+                },
+                {
+                    order: 2,
+                    agent: "bed_management_agent",
+                    status:
+                        bed.output.assignmentStatus === "waitlisted"
+                            ? "waitlisted"
+                            : "completed",
+                    inputSummary: `${availableBeds.length} eligible bed candidate(s); monitor ${bedInput.requiresMonitor ? "required" : "not required"}.`,
+                    outputSummary:
+                        bed.output.selectedBedId === null
+                            ? `Waitlisted for ${bed.output.selectedBedType}; estimate ${bed.output.estimatedWaitMinutes} minutes.`
+                            : `Selected ${bed.output.selectedBedId} (${bed.output.selectedBedType}).`,
+                    appliedRules: bed.output.appliedRules,
+                    toolActions: [
+                        {
+                            tool: "get_available_beds",
+                            status: `${availableBeds.length}_candidates`,
+                        },
+                        ...(bed.output.selectedBedId
+                            ? [
+                                  {
+                                      tool: "assign_patient_to_bed",
+                                      status: bedAssignmentStatus,
+                                  },
+                              ]
+                            : []),
+                    ],
+                },
+                {
+                    order: 3,
+                    agent: "staff_coordination_agent",
+                    status:
+                        staff.output.assignmentStatus === "deferred"
+                            ? "deferred"
+                            : "completed",
+                    inputSummary: `Required coverage for ${triage.output.severity} acuity.`,
+                    outputSummary:
+                        staff.output.assignedStaffIds.length > 0
+                            ? `Assigned ${staff.output.assignedRoles.join(", ")}: ${staff.output.assignedStaffIds.join(", ")}.`
+                            : "Staff assignment deferred pending capacity.",
+                    appliedRules:
+                        staff.output.appliedRules.length > 0
+                            ? staff.output.appliedRules
+                            : ["bed_capacity_dependency"],
+                    toolActions: staff.output.assignedStaffIds.length
+                        ? [
+                              {
+                                  tool: "get_available_staff",
+                                  status: "completed",
+                              },
+                              {
+                                  tool: "assign_staff_to_patient",
+                                  status: staffAssignmentStatus,
+                              },
+                          ]
+                        : [],
+                },
+                {
+                    order: 4,
+                    agent: "reporting_agent",
+                    status: "completed",
+                    inputSummary:
+                        "Validated triage, bed, staff, census, and capacity outputs.",
+                    outputSummary: `${reporting.output.criticalAlerts.length} operational alert(s); dashboard state generated.`,
+                    appliedRules: reporting.output.appliedRules,
+                    toolActions: [
+                        { tool: "load_operational_snapshot", status: "read" },
+                    ],
+                },
+                {
+                    order: 5,
+                    agent: "er_operations_orchestrator",
+                    status: "completed",
+                    inputSummary:
+                        "Received validated specialist outputs and write results.",
+                    outputSummary: "Synthesized final ER operational state.",
+                    appliedRules: ["specialist_outputs_are_source_of_truth"],
+                    toolActions: [],
+                },
+            ];
+
             return {
+                workflowId,
+                executionMode,
+                modelCallCount,
                 response: root.output.response,
                 workflow: {
                     triage: triage.output,
@@ -579,6 +979,14 @@ export async function runDelegatedErWorkflow(
                     reporting: reporting.output,
                 },
                 delegations,
+                agentTimeline,
+                executionEvidence: {
+                    patientRecordId: workflowContext.patientId,
+                    patientWriteStatus,
+                    bedAssignmentStatus,
+                    staffAssignmentStatus,
+                    workflowId,
+                },
                 toolCalls,
                 toolResponses,
             };

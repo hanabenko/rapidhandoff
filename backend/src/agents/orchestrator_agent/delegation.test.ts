@@ -156,6 +156,23 @@ function createSpanRecorder() {
 
 test("delegated workflow invokes specialized agents and passes outputs forward", async () => {
     const seenInputs: Record<string, Record<string, unknown>> = {};
+    const repository = repositoryStub();
+    const writes: string[] = [];
+    const originalUpsert = repository.upsertPatientIntake;
+    const originalBedAssignment = repository.assignPatientToBed;
+    const originalStaffAssignment = repository.assignStaffToPatient;
+    repository.upsertPatientIntake = async (input) => {
+        writes.push(`patient:${input.patientId}`);
+        return originalUpsert(input);
+    };
+    repository.assignPatientToBed = async (input) => {
+        writes.push(`bed:${input.bedId}`);
+        return originalBedAssignment(input);
+    };
+    repository.assignStaffToPatient = async (input) => {
+        writes.push(`staff:${input.staffIds.join(",")}`);
+        return originalStaffAssignment(input);
+    };
     const spanRecorder = createSpanRecorder();
     setWorkflowSpanRunnerForTests(spanRecorder.runner);
 
@@ -174,7 +191,7 @@ test("delegated workflow invokes specialized agents and passes outputs forward",
                 userId: "integration-test",
             },
             {
-                repository: repositoryStub(),
+                repository,
                 agents: {
                     triage: {
                         agent: createTriageAgent({
@@ -314,9 +331,99 @@ test("delegated workflow invokes specialized agents and passes outputs forward",
         assert.ok(
             spanRecorder.spans.includes(workflowSpanNames.delegationOutput),
         );
+        assert.deepEqual(
+            result.agentTimeline.map((step) => step.agent),
+            [
+                "triage_agent",
+                "bed_management_agent",
+                "staff_coordination_agent",
+                "reporting_agent",
+                "er_operations_orchestrator",
+            ],
+        );
+        assert.deepEqual(writes, [
+            "patient:P-200",
+            "bed:B-EXAM-9",
+            "staff:DOC-7,RN-3",
+        ]);
+        assert.equal(
+            result.executionEvidence.patientRecordId,
+            "P-200",
+        );
+        assert.equal(result.executionEvidence.bedAssignmentStatus, "assigned");
+        assert.equal(
+            result.executionEvidence.staffAssignmentStatus,
+            "assigned",
+        );
+        assert.ok(result.workflowId);
     } finally {
         setWorkflowSpanRunnerForTests(undefined);
     }
+});
+
+test("adaptive workflow avoids model calls for reported-acuity intake", async () => {
+    let modelCalls = 0;
+    const rejectModelCall: BeforeModelCallback = () => {
+        modelCalls += 1;
+        throw new Error("Model should not be called for this intake.");
+    };
+
+    const result = await runDelegatedErWorkflow(
+        {
+            query: "Create intake and coordinate the ER workflow.",
+            context: {
+                patientId: "P-FAST-1",
+                chiefComplaint: "Demo concern",
+                triageLevel: "urgent",
+                assignedByStaffId: "CHARGE-1",
+            },
+        },
+        {
+            repository: repositoryStub(),
+            executionMode: "adaptive",
+            agents: {
+                triage: {
+                    agent: createTriageAgent({
+                        beforeModelCallback: rejectModelCall,
+                    }),
+                    inputSchema: undefined as never,
+                },
+                bed: {
+                    agent: createBedManagementAgent({
+                        beforeModelCallback: rejectModelCall,
+                    }),
+                    inputSchema: undefined as never,
+                },
+                staff: {
+                    agent: createStaffCoordinationAgent({
+                        beforeModelCallback: rejectModelCall,
+                    }),
+                    inputSchema: undefined as never,
+                },
+                reporting: {
+                    agent: createReportingAgent({
+                        beforeModelCallback: rejectModelCall,
+                    }),
+                    inputSchema: undefined as never,
+                },
+                root: {
+                    agent: createRootOrchestratorAgent({
+                        beforeModelCallback: rejectModelCall,
+                    }),
+                    inputSchema: undefined as never,
+                },
+            },
+        },
+    );
+
+    assert.equal(modelCalls, 0);
+    assert.equal(result.executionMode, "adaptive");
+    assert.equal(result.modelCallCount, 0);
+    assert.equal(result.workflow.triage.esiLevel, 3);
+    assert.equal(result.workflow.bedAssignment.selectedBedId, "B-EXAM-9");
+    assert.deepEqual(result.workflow.staffAssignment.assignedStaffIds, [
+        "RN-3",
+    ]);
 });
 
 test("delegated workflow surfaces ADK model errors from sub-agents", async () => {

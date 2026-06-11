@@ -24,6 +24,17 @@ credential before submitting an intake with:
 gcloud auth application-default print-access-token
 ```
 
+Structured intake uses `ER_AGENT_EXECUTION_MODE=adaptive` by default. Because
+the receptionist form supplies a reported acuity, ESI, bed, staff, reporting,
+and synthesis decisions run through deterministic specialist policies without
+waiting for five serial model calls. If acuity is omitted, adaptive mode asks
+Gemini for triage only. Use `policy` to disable model calls for all structured
+intakes, or `full_llm` to exercise all five ADK `LlmAgent` stages:
+
+```bash
+ER_AGENT_EXECUTION_MODE=adaptive
+```
+
 ## Node.js backend
 
 The Express backend wraps the existing ADK agent without duplicating its
@@ -49,6 +60,8 @@ Routes:
 - `POST /tools/briefing`
 
 See [docs/cloud-run.md](docs/cloud-run.md) for the staged Cloud Run deployment.
+See [docs/agent-builder.md](docs/agent-builder.md) for the Agent Builder
+OpenAPI registration contract and the exact invocation path.
 
 ## Frontend MVP
 
@@ -111,6 +124,35 @@ Frontend validation:
 corepack pnpm frontend:typecheck
 corepack pnpm frontend:build
 ```
+
+## Why this is not a GPT wrapper
+
+Rapid Handoff performs a typed, state-changing ER transaction rather than
+returning an unconstrained chat completion:
+
+- **Gemini and ADK orchestration:** the root orchestrator runs on Vertex Gemini
+  through Google ADK and delegates a multi-step plan to four `LlmAgent`
+  specialists.
+- **Different operational roles:** triage applies ESI-style acuity rules, bed
+  management enforces bed type and monitoring constraints, staff coordination
+  enforces availability and role coverage, and reporting derives dashboard
+  state from validated upstream outputs.
+- **Deterministic guardrails:** Gemini proposals are checked and corrected by
+  role-specific rules before any assignment is written.
+- **MCP-backed state mutation:** patient intake, bed assignment, and staff
+  assignment execute through the MongoDB MCP repository. The API returns
+  sanitized write statuses instead of merely claiming success.
+- **Auditable planning:** every structured response contains a workflow ID,
+  five-step agent timeline, applied constraints, and tool actions.
+- **Observable execution:** OpenTelemetry spans are exported to Phoenix/Arize,
+  and the trace ID is returned with the workflow.
+- **Visible proof:** the Internal Operations dashboard shows the agent
+  timeline alongside the resulting MongoDB-backed queue, beds, and staff.
+
+Agent Builder registration is supported through
+[`docs/agent-builder-openapi.yaml`](docs/agent-builder-openapi.yaml). The repo
+does not claim a managed Agent Engine deployment until that registration and
+authenticated invocation have been completed.
 
 ## Phoenix tracing
 

@@ -33,6 +33,7 @@ export const bedManagementAgentOutputSchema = z.object({
     selectedBedType: bedTypeSchema,
     rationale: z.string().min(1).max(1000),
     estimatedWaitMinutes: z.number().int().min(0).max(1440),
+    appliedRules: z.array(z.string()).default([]),
 });
 
 export type BedManagementAgentInput = z.infer<

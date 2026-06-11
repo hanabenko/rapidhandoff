@@ -7,7 +7,13 @@ import {
 } from "@google/adk";
 
 import { rootAgent } from "./agents/orchestrator_agent/agent.js";
-import { canUseDelegatedWorkflow, runDelegatedErWorkflow } from "./agents/orchestrator_agent/delegation.js";
+import {
+    canUseDelegatedWorkflow,
+    runDelegatedErWorkflow,
+    type AgentExecutionMode,
+    type AgentTimelineStep,
+    type ExecutionEvidence,
+} from "./agents/orchestrator_agent/delegation.js";
 import {
     buildOrchestrationRequestAttributes,
     buildOrchestrationResponseAttributes,
@@ -42,7 +48,14 @@ export interface OrchestrateInput {
 export interface OrchestrateResult {
     agent: string;
     response: string;
+    workflowId?: string;
+    executionMode?: AgentExecutionMode;
+    modelCallCount?: number;
     traceId?: string;
+    agentTimeline?: AgentTimelineStep[];
+    executionEvidence?: ExecutionEvidence & {
+        traceId?: string;
+    };
     workflow?: {
         triage: TriageAgentOutput;
         bedAssignment: BedManagementAgentOutput;
@@ -99,10 +112,19 @@ export async function orchestrateErOperations(
             },
             async () => {
                 const delegated = await runDelegatedErWorkflow(input);
+                const traceId = getActiveTraceId();
                 const result: OrchestrateResult = {
                     agent: rootAgent.name,
                     response: delegated.response,
-                    traceId: getActiveTraceId(),
+                    workflowId: delegated.workflowId,
+                    executionMode: delegated.executionMode,
+                    modelCallCount: delegated.modelCallCount,
+                    traceId,
+                    agentTimeline: delegated.agentTimeline,
+                    executionEvidence: {
+                        ...delegated.executionEvidence,
+                        traceId,
+                    },
                     workflow: delegated.workflow,
                     toolCalls: delegated.toolCalls,
                     toolResponses: delegated.toolResponses,

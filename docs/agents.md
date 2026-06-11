@@ -13,7 +13,9 @@ diagnose disease, prescribe treatment, or replace clinician judgment.
 
 ## 1. Orchestrator agent
 
-Runtime: Google Cloud Agent Builder / Vertex AI Agent Engine.
+Runtime target: Google Cloud Agent Builder / Vertex AI Agent Engine. The
+current executable backend runs Google ADK agents on Cloud Run; registration
+instructions are in [agent-builder.md](agent-builder.md).
 
 The orchestrator receives high-level ER operations goals from the backend or UI
 and decides which sub-agent or approved MCP-facing tool should handle each part

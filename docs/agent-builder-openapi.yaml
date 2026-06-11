@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: Rapid Handoff ER Operations
+  version: 1.0.0
+  description: >
+    Authenticated operational tool for invoking the Rapid Handoff ADK
+    multi-agent workflow from Google Cloud Agent Builder.
+servers:
+  - url: https://YOUR_CLOUD_RUN_SERVICE_URL
+paths:
+  /agent/orchestrate:
+    post:
+      operationId: coordinateErWorkflow
+      summary: Coordinate ER intake, triage, bed, staff, and reporting
+      description: >
+        Invokes the production ADK workflow. The backend delegates to
+        specialized agents, executes MongoDB MCP tools, and returns sanitized
+        decision and write evidence.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrchestrateRequest"
+      responses:
+        "200":
+          description: Completed or waitlisted ER workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrchestrateResponse"
+        "400":
+          description: Invalid structured workflow input
+        "500":
+          description: Workflow or dependency failure
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Google Cloud ID token
+  schemas:
+    OrchestrateRequest:
+      type: object
+      required:
+        - query
+        - context
+      properties:
+        query:
+          type: string
+        userId:
+          type: string
+        context:
+          type: object
+          required:
+            - patientId
+          properties:
+            patientId:
+              type: string
+            age:
+              type: integer
+              minimum: 0
+              maximum: 130
+            chiefComplaint:
+              type: string
+            symptoms:
+              type: array
+              items:
+                type: string
+            triageLevel:
+              type: string
+              enum:
+                - critical
+                - emergent
+                - urgent
+                - less_urgent
+                - non_urgent
+            requiresMonitor:
+              type: boolean
+            assignedByStaffId:
+              type: string
+    OrchestrateResponse:
+      type: object
+      required:
+        - agent
+        - response
+        - workflowId
+        - agentTimeline
+        - executionEvidence
+      properties:
+        agent:
+          type: string
+        response:
+          type: string
+        workflowId:
+          type: string
+        traceId:
+          type: string
+        agentTimeline:
+          type: array
+          items:
+            type: object
+            required:
+              - order
+              - agent
+              - status
+              - inputSummary
+              - outputSummary
+              - appliedRules
+              - toolActions
+            properties:
+              order:
+                type: integer
+              agent:
+                type: string
+              status:
+                type: string
+                enum:
+                  - completed
+                  - waitlisted
+                  - deferred
+              inputSummary:
+                type: string
+              outputSummary:
+                type: string
+              appliedRules:
+                type: array
+                items:
+                  type: string
+              toolActions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    tool:
+                      type: string
+                    status:
+                      type: string
+        executionEvidence:
+          type: object
+          properties:
+            patientRecordId:
+              type: string
+            patientWriteStatus:
+              type: string
+            bedAssignmentStatus:
+              type: string
+            staffAssignmentStatus:
+              type: string
+            workflowId:
+              type: string
+            traceId:
+              type: string
