@@ -1,46 +1,6 @@
-import { FunctionTool, LlmAgent } from "@google/adk";
-import { z } from "zod";
+import { LlmAgent } from "@google/adk";
 
 const model = process.env.ER_ORCHESTRATOR_MODEL ?? "gemini-2.5-flash";
-
-export const recordTriageAssessmentTool = new FunctionTool({
-    name: "record_triage_assessment",
-    description:
-        "Call this once you have finished assessing the patient to commit the triage decision.",
-    parameters: z.object({
-        esiLevel: z
-            .number()
-            .int()
-            .min(1)
-            .max(5)
-            .describe("ESI triage level 1 (critical) through 5 (non-urgent)"),
-        triageLevel: z
-            .enum(["critical", "emergent", "urgent", "less_urgent", "non_urgent"])
-            .describe("Named triage level matching the ESI number"),
-        reasoning: z
-            .string()
-            .min(1)
-            .describe("Clinical reasoning explaining why this ESI level was assigned"),
-        carePathway: z
-            .string()
-            .min(1)
-            .describe(
-                "Recommended initial care steps and priorities for this patient",
-            ),
-        recommendedBedType: z
-            .enum(["trauma", "exam", "observation", "isolation", "pediatric"])
-            .describe("Bed type appropriate for this patient's acuity"),
-        requiresMonitor: z
-            .boolean()
-            .describe("Whether cardiac/vitals monitoring is required"),
-        escalationFlags: z
-            .array(z.string())
-            .describe(
-                "Urgent clinical concerns that require immediate attention or escalation",
-            ),
-    }),
-    execute: async (assessment) => ({ status: "recorded", ...assessment }),
-});
 
 export const triageAgent = new LlmAgent({
     name: "er_triage_agent",
@@ -85,24 +45,18 @@ Medication refill, mild cold symptoms, paperwork, or a very minor complaint with
 | 4-5 | exam | no |
 | Any pediatric (age < 14) | pediatric | based on ESI |
 
-## Instructions
+## Output format
 
-1. Read the patient's age, chief complaint, and self-reported risk factors carefully.
-2. Treat chest pain, trouble breathing, fainting/confusion, or heavy bleeding as strong escalation signals even without formal vitals.
-3. Use any available home vitals if provided, but do not invent missing numbers.
-4. Determine the ESI level using the criteria above.
-5. Formulate the care pathway - what needs to happen in the first 15 minutes.
-6. Call record_triage_assessment with your complete assessment.
-7. After the tool call, respond with a plain-text summary in exactly this format:
+Respond with ONLY this block — no preamble, no extra text:
 
-**ESI Level:** [number] — [level name]
+**ESI Level:** [1-5] — [critical|emergent|urgent|less_urgent|non_urgent]
 **Reasoning:** [one sentence of clinical reasoning]
 **Care pathway:** [what needs to happen in the first 15 minutes]
-**Recommended bed type:** [bed type]
-**Monitor required:** [yes or no]
-**Escalation flags:** [comma-separated flags, or none]
+**Recommended bed type:** [trauma|exam|observation|isolation|pediatric]
+**Monitor required:** [yes|no]
+**Escalation flags:** [comma-separated concerns, or none]
 
 Be decisive. Err toward a higher acuity level when the history suggests elevated risk.
 Do not diagnose conditions or order treatments - focus on routing and urgency.`,
-    tools: [recordTriageAssessmentTool],
+    tools: [],
 });
