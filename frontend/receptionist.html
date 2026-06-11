@@ -176,9 +176,9 @@
 
     .loading {
       display: none;
-      align-items: center;
-      gap: 12px;
-      padding: 18px 24px;
+      flex-direction: column;
+      gap: 0;
+      padding: 20px 24px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -186,17 +186,96 @@
       margin: 0 auto 20px;
     }
     .loading.visible { display: flex; }
+    .loading-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
     .spinner {
-      width: 22px;
-      height: 22px;
-      border: 3px solid var(--border);
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       flex-shrink: 0;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading p { font-size: 0.9rem; color: var(--muted); }
+    .loading-header span { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      opacity: 0.35;
+      transition: opacity 0.3s;
+    }
+    .step:last-child { border-bottom: none; }
+    .step.active { opacity: 1; }
+    .step.done { opacity: 1; }
+    .step-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+    }
+    .step.active .step-icon::before { content: ""; display: block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .step.done .step-icon { color: #4ade80; font-size: 1rem; }
+    .step.done .step-icon::after { content: "✓"; }
+    .step.pending .step-icon { color: var(--muted); font-size: 1rem; }
+    .step.pending .step-icon::after { content: "○"; }
+    .step-body { flex: 1; }
+    .step-label { font-size: 0.88rem; font-weight: 500; color: var(--text); line-height: 1.3; }
+    .step.pending .step-label { color: var(--muted); }
+    .step-detail { font-size: 0.78rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+    .reasoning-log {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      display: flex;
+      gap: 8px;
+      font-size: 0.77rem;
+      line-height: 1.45;
+    }
+    .log-tag { font-weight: 600; flex-shrink: 0; font-family: monospace; }
+    .log-entry.agent .log-tag  { color: var(--accent); }
+    .log-entry.action .log-tag { color: #a78bfa; }
+    .log-entry.text .log-tag   { color: #4ade80; }
+    .log-text { color: var(--muted); }
+
+    #agent-trace {
+      display: none;
+      max-width: 760px;
+      margin: 0 auto 20px;
+      padding: 14px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    #agent-trace.visible { display: block; }
+    .agent-trace-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
 
     .error-banner {
       display: none;
@@ -406,8 +485,45 @@
   </div>
 
   <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p>Submitting your check in. Please wait a moment while we route it to the care team.</p>
+    <div class="loading-header">
+      <div class="spinner"></div>
+      <span>Multi-agent system processing — this takes 30–60 seconds</span>
+    </div>
+    <div class="steps">
+      <div class="step pending" id="step-1">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Patient information recorded</div>
+          <div class="step-detail">Intake submitted to ER orchestrator</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-2">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Triage agent assessing severity</div>
+          <div class="step-detail">er_triage_agent evaluating ESI level, care pathway, and escalation flags</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-3">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Checking bed availability</div>
+          <div class="step-detail">Querying MongoDB for open beds matching triage requirements</div>
+        </div>
+      </div>
+      <div class="step pending" id="step-4">
+        <div class="step-icon"></div>
+        <div class="step-body">
+          <div class="step-label">Coordinating staff assignment</div>
+          <div class="step-detail">er_staff_coordinator matching available staff to acuity level</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="agent-trace">
+    <div class="agent-trace-label">Agent activity</div>
+    <div class="reasoning-log" id="reasoning-log"></div>
   </div>
 
   <div class="error-banner" id="error-banner"></div>
@@ -540,6 +656,96 @@
       document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    let stepTimers = [];
+
+    function startFallbackTimers() {
+      stepTimers.push(setTimeout(() => { if (activeStep < 2) advanceToStep(2); }, 8000));
+      stepTimers.push(setTimeout(() => { if (activeStep < 3) advanceToStep(3); }, 22000));
+      stepTimers.push(setTimeout(() => { if (activeStep < 4) advanceToStep(4); }, 38000));
+    }
+
+    function clearTimers() {
+      stepTimers.forEach(clearTimeout);
+      stepTimers = [];
+    }
+
+    const TOOL_STEP = {
+      intake_patient: 1,
+      er_triage_agent: 2,
+      get_available_beds: 3, assign_patient_to_bed: 3,
+      er_staff_coordinator: 4, assign_staff_to_patient: 4, get_available_staff: 4,
+    };
+    const TOOL_LABEL = {
+      intake_patient: "Patient registered",
+      er_triage_agent: "Triage agent",
+      get_available_beds: "Bed query",
+      assign_patient_to_bed: "Bed assigned",
+      er_staff_coordinator: "Staff coordinator",
+      assign_staff_to_patient: "Staff assigned",
+      get_available_staff: "Staff query",
+    };
+
+    let activeStep = 0;
+
+    function setStep(id, state) {
+      const el = document.getElementById(id);
+      el.classList.remove("pending", "active", "done");
+      el.classList.add(state);
+    }
+
+    function advanceToStep(n) {
+      if (n <= activeStep) return;
+      for (let i = 1; i < n; i++) setStep(`step-${i}`, "done");
+      setStep(`step-${n}`, "active");
+      activeStep = n;
+    }
+
+    function completeSteps() {
+      for (let i = 1; i <= 4; i++) setStep(`step-${i}`, "done");
+    }
+
+    function resetSteps() {
+      activeStep = 0;
+      for (let i = 1; i <= 4; i++) setStep(`step-${i}`, "pending");
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function clearLog() {
+      document.getElementById("reasoning-log").innerHTML = "";
+      document.getElementById("agent-trace").classList.remove("visible");
+    }
+
+    function addLog(type, tag, text) {
+      document.getElementById("agent-trace").classList.add("visible");
+      const log = document.getElementById("reasoning-log");
+      const el = document.createElement("div");
+      el.className = `log-entry ${type}`;
+      el.innerHTML = `<span class="log-tag">${escHtml(tag)}</span><span class="log-text">${escHtml(text)}</span>`;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function handleStreamEvent(ev) {
+      if (ev.type === "tool_call") {
+        const step = TOOL_STEP[ev.tool];
+        const label = TOOL_LABEL[ev.tool] ?? ev.tool;
+        if (step) advanceToStep(step);
+        addLog("agent", label, "→ called");
+      } else if (ev.type === "tool_result") {
+        const label = TOOL_LABEL[ev.tool] ?? ev.tool;
+        addLog("action", label, "✓ complete");
+      } else if (ev.type === "tool_result_detail" && ev.text) {
+        const short = ev.text.length > 250 ? ev.text.slice(0, 250) + "…" : ev.text;
+        addLog("text", ev.agent || "agent", short);
+      } else if (ev.type === "text" && ev.text) {
+        const short = ev.text.length > 180 ? ev.text.slice(0, 180) + "…" : ev.text;
+        addLog("text", ev.agent || "agent", short);
+      }
+    }
+
     async function handleSubmit() {
       if (!validate()) return;
 
@@ -550,25 +756,52 @@
       document.getElementById("loading").classList.add("visible");
       document.getElementById("error-banner").classList.remove("visible");
       document.getElementById("result").classList.remove("visible");
+      resetSteps();
+      clearLog();
+      setStep("step-1", "done");
+      activeStep = 1;
+      startFallbackTimers();
 
       try {
-        const res = await fetch("/agent/orchestrate", {
+        const res = await fetch("/agent/orchestrate/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query,
-            userId: "check-in-form",
-          }),
+          body: JSON.stringify({ query, userId: "check-in-form" }),
         });
 
-        const data = await res.json();
         if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
           throw new Error(data.message ?? `Server error ${res.status}`);
         }
 
-        showResult(data.response, patientName);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let finalResponse = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "done") { finalResponse = ev.response; }
+              else if (ev.type === "error") { throw new Error(ev.message); }
+              else handleStreamEvent(ev);
+            } catch (parseErr) { /* skip malformed lines */ }
+          }
+        }
+
+        clearTimers();
+        completeSteps();
+        showResult(finalResponse || "Intake complete.", patientName);
         document.getElementById("form-card").style.display = "none";
       } catch (err) {
+        clearTimers();
         const banner = document.getElementById("error-banner");
         banner.textContent = `Error: ${err.message}`;
         banner.classList.add("visible");
@@ -587,6 +820,8 @@
       document.getElementById("form-card").style.display = "block";
       document.getElementById("result").classList.remove("visible");
       document.getElementById("error-banner").classList.remove("visible");
+      resetSteps();
+      clearLog();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   </script>

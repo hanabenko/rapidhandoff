@@ -15,7 +15,7 @@ import {
     recommendStaffingTool,
 } from "./agents/orchestrator_agent/tools.js";
 import { loadErSnapshot } from "./agents/orchestrator_agent/data.js";
-import { orchestrateErOperations } from "./orchestrator.js";
+import { orchestrateErOperations, streamErOperations } from "./orchestrator.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -276,6 +276,35 @@ export function createApp() {
             try {
                 const input = orchestrateRequestSchema.parse(request.body);
                 response.json(await orchestrateErOperations(input));
+            } catch (error) {
+                next(error);
+            }
+        },
+    );
+
+    app.post(
+        "/agent/orchestrate/stream",
+        async (request: Request, response: Response, next: NextFunction) => {
+            try {
+                const input = orchestrateRequestSchema.parse(request.body);
+                response.setHeader("Content-Type", "text/event-stream");
+                response.setHeader("Cache-Control", "no-cache");
+                response.setHeader("Connection", "keep-alive");
+                response.flushHeaders();
+
+                const send = (data: object) =>
+                    response.write(`data: ${JSON.stringify(data)}\n\n`);
+
+                try {
+                    const finalResponse = await streamErOperations(input, send);
+                    send({ type: "done", response: finalResponse });
+                } catch (streamErr) {
+                    send({
+                        type: "error",
+                        message: streamErr instanceof Error ? streamErr.message : "Unexpected error",
+                    });
+                }
+                response.end();
             } catch (error) {
                 next(error);
             }
