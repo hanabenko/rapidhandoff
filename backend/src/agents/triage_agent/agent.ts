@@ -93,6 +93,14 @@ Medication refill, mild cold symptoms, paperwork, or a very minor complaint with
 4. Determine the ESI level using the criteria above.
 5. Formulate the care pathway - what needs to happen in the first 15 minutes.
 6. Call record_triage_assessment with your complete assessment.
+7. After the tool call, respond with a plain-text summary in exactly this format:
+
+**ESI Level:** [number] — [level name]
+**Reasoning:** [one sentence of clinical reasoning]
+**Care pathway:** [what needs to happen in the first 15 minutes]
+**Recommended bed type:** [bed type]
+**Monitor required:** [yes or no]
+**Escalation flags:** [comma-separated flags, or none]
 
 Be decisive. Err toward a higher acuity level when the history suggests elevated risk.
 Do not diagnose conditions or order treatments - focus on routing and urgency.`,
