@@ -8,18 +8,18 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0a0c12;
-      --surface: #13151f;
-      --surface2: #1a1d29;
-      --border: #252838;
-      --text: #e8eaf0;
-      --muted: #565c7a;
-      --accent: #4f8ef7;
-      --esi-1: #ef4444;
-      --esi-2: #f97316;
-      --esi-3: #eab308;
-      --esi-4: #22c55e;
-      --esi-5: #3b82f6;
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --surface2: #f0f2f8;
+      --border: #dde2ee;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #2d6be4;
+      --esi-1: #dc2626;
+      --esi-2: #ea580c;
+      --esi-3: #ca8a04;
+      --esi-4: #16a34a;
+      --esi-5: #2563eb;
       --radius: 10px;
     }
 
@@ -88,11 +88,11 @@
       max-width: 1100px;
       margin: 0 auto 16px;
       padding: 10px 16px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.3);
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.2);
       border-radius: var(--radius);
       font-size: 0.82rem;
-      color: #fca5a5;
+      color: #dc2626;
     }
     .offline-bar.visible { display: block; }
 
@@ -206,11 +206,11 @@
       font-size: 0.85rem;
       font-weight: 800;
     }
-    .esi-dot.esi-1 { background: rgba(239,68,68,0.18); color: var(--esi-1); border: 1.5px solid rgba(239,68,68,0.4); }
-    .esi-dot.esi-2 { background: rgba(249,115,22,0.18); color: var(--esi-2); border: 1.5px solid rgba(249,115,22,0.4); }
-    .esi-dot.esi-3 { background: rgba(234,179,8,0.18); color: var(--esi-3); border: 1.5px solid rgba(234,179,8,0.4); }
-    .esi-dot.esi-4 { background: rgba(34,197,94,0.18); color: var(--esi-4); border: 1.5px solid rgba(34,197,94,0.4); }
-    .esi-dot.esi-5 { background: rgba(59,130,246,0.18); color: var(--esi-5); border: 1.5px solid rgba(59,130,246,0.4); }
+    .esi-dot.esi-1 { background: rgba(220,38,38,0.1); color: var(--esi-1); border: 1.5px solid rgba(220,38,38,0.35); }
+    .esi-dot.esi-2 { background: rgba(234,88,12,0.1); color: var(--esi-2); border: 1.5px solid rgba(234,88,12,0.35); }
+    .esi-dot.esi-3 { background: rgba(202,138,4,0.1); color: var(--esi-3); border: 1.5px solid rgba(202,138,4,0.35); }
+    .esi-dot.esi-4 { background: rgba(22,163,74,0.1); color: var(--esi-4); border: 1.5px solid rgba(22,163,74,0.35); }
+    .esi-dot.esi-5 { background: rgba(37,99,235,0.1); color: var(--esi-5); border: 1.5px solid rgba(37,99,235,0.35); }
 
     .queue-info { flex: 1; min-width: 0; }
     .queue-name {
@@ -243,14 +243,14 @@
       border-radius: 999px;
       border: 1px solid transparent;
     }
-    .status-waiting { background: rgba(79,142,247,0.15); color: var(--accent); border-color: rgba(79,142,247,0.3); }
-    .status-in_treatment { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .status-waiting { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
+    .status-in_treatment { background: rgba(22,163,74,0.1); color: #15803d; border-color: rgba(22,163,74,0.25); }
     .priority-high,
-    .severity-critical { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+    .severity-critical { background: rgba(220,38,38,0.1); color: #b91c1c; border-color: rgba(220,38,38,0.25); }
     .priority-medium,
-    .severity-warning { background: rgba(249,115,22,0.15); color: #fdba74; border-color: rgba(249,115,22,0.3); }
+    .severity-warning { background: rgba(234,88,12,0.1); color: #c2410c; border-color: rgba(234,88,12,0.25); }
     .priority-low,
-    .severity-info { background: rgba(79,142,247,0.15); color: #93c5fd; border-color: rgba(79,142,247,0.3); }
+    .severity-info { background: rgba(45,107,228,0.1); color: #1e40af; border-color: rgba(45,107,228,0.25); }
 
     .sidebar { display: flex; flex-direction: column; gap: 16px; }
 
@@ -310,8 +310,8 @@
 
     .act-btn {
       flex-shrink: 0;
-      background: rgba(79,142,247,0.12);
-      border: 1px solid rgba(79,142,247,0.35);
+      background: rgba(45,107,228,0.08);
+      border: 1px solid rgba(45,107,228,0.25);
       color: var(--accent);
       font-size: 0.67rem;
       font-weight: 700;
@@ -323,22 +323,22 @@
       transition: background 0.12s, opacity 0.12s;
       white-space: nowrap;
     }
-    .act-btn:hover:not(:disabled) { background: rgba(79,142,247,0.22); }
+    .act-btn:hover:not(:disabled) { background: rgba(45,107,228,0.15); }
     .act-btn:disabled { opacity: 0.45; cursor: default; }
     .act-btn.done {
-      background: rgba(34,197,94,0.12);
-      border-color: rgba(34,197,94,0.35);
-      color: #4ade80;
+      background: rgba(22,163,74,0.1);
+      border-color: rgba(22,163,74,0.3);
+      color: #15803d;
     }
     .act-btn.failed {
-      background: rgba(239,68,68,0.12);
-      border-color: rgba(239,68,68,0.35);
-      color: #fca5a5;
+      background: rgba(220,38,38,0.1);
+      border-color: rgba(220,38,38,0.25);
+      color: #b91c1c;
     }
 
     .action-trace {
       margin-top: 10px;
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.03);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 8px 10px;
@@ -366,11 +366,11 @@
       white-space: nowrap;
     }
     .log-text { color: var(--muted); word-break: break-word; }
-    .log-tool .log-tag { background: rgba(79,142,247,0.18); color: var(--accent); }
-    .log-result .log-tag { background: rgba(234,179,8,0.15); color: #fcd34d; }
-    .log-text-ev .log-tag { background: rgba(168,85,247,0.15); color: #c4b5fd; }
-    .log-done .log-tag { background: rgba(34,197,94,0.15); color: #4ade80; }
-    .log-error .log-tag { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .log-tool .log-tag    { background: rgba(45,107,228,0.1); color: #1e40af; }
+    .log-result .log-tag  { background: rgba(202,138,4,0.1); color: #a16207; }
+    .log-text-ev .log-tag { background: rgba(124,58,237,0.1); color: #6d28d9; }
+    .log-done .log-tag    { background: rgba(22,163,74,0.1); color: #15803d; }
+    .log-error .log-tag   { background: rgba(220,38,38,0.1); color: #b91c1c; }
     .log-done .log-text, .log-error .log-text { color: var(--text); }
 
     .rooms-panel {
@@ -394,18 +394,18 @@
       position: relative;
       overflow: hidden;
     }
-    .room-card.room-available { background: rgba(34,197,94,0.07); }
-    .room-card.room-cleaning  { background: rgba(234,179,8,0.07); }
-    .room-card.room-occupied  { background: rgba(79,142,247,0.07); }
-    .room-card.room-occupied.esi-1 { background: rgba(239,68,68,0.1); }
-    .room-card.room-occupied.esi-2 { background: rgba(249,115,22,0.09); }
-    .room-card.room-occupied.esi-3 { background: rgba(234,179,8,0.08); }
+    .room-card.room-available { background: rgba(22,163,74,0.05); }
+    .room-card.room-cleaning  { background: rgba(245,158,11,0.07); }
+    .room-card.room-occupied  { background: rgba(45,107,228,0.06); }
+    .room-card.room-occupied.esi-1 { background: rgba(220,38,38,0.07); }
+    .room-card.room-occupied.esi-2 { background: rgba(234,88,12,0.07); }
+    .room-card.room-occupied.esi-3 { background: rgba(202,138,4,0.06); }
     .room-card.room-just-assigned {
       animation: roomFlash 1.4s ease;
     }
     @keyframes roomFlash {
-      0%   { background: rgba(79,142,247,0.35); }
-      100% { background: rgba(79,142,247,0.07); }
+      0%   { background: rgba(45,107,228,0.22); }
+      100% { background: rgba(45,107,228,0.06); }
     }
     .room-header {
       display: flex;
@@ -441,8 +441,8 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .room-available .room-dot { background: #4ade80; }
-    .room-cleaning  .room-dot { background: #fcd34d; animation: pulse 1.5s infinite; }
+    .room-available .room-dot { background: #16a34a; }
+    .room-cleaning  .room-dot { background: #d97706; animation: pulse 1.5s infinite; }
     .room-occupied  .room-dot { background: var(--accent); }
     .room-status-text {
       font-size: 0.6rem;
@@ -450,8 +450,8 @@
       text-transform: uppercase;
       letter-spacing: 0.07em;
     }
-    .room-available .room-status-text { color: #4ade80; }
-    .room-cleaning  .room-status-text { color: #fcd34d; }
+    .room-available .room-status-text { color: #15803d; }
+    .room-cleaning  .room-status-text { color: #b45309; }
     .room-occupied  .room-status-text { color: var(--accent); }
     .room-patient {
       font-size: 0.72rem;
@@ -479,22 +479,22 @@
       max-width: 380px;
     }
     .toast {
-      background: var(--surface2);
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 13px 16px;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.12);
       pointer-events: auto;
       animation: toastIn 0.22s ease;
     }
-    .toast.toast-success { border-left: 3px solid #4ade80; }
+    .toast.toast-success { border-left: 3px solid #16a34a; }
     .toast.toast-info    { border-left: 3px solid var(--accent); }
     .toast-title {
       font-size: 0.82rem;
       font-weight: 700;
       margin-bottom: 4px;
     }
-    .toast-success .toast-title { color: #4ade80; }
+    .toast-success .toast-title { color: #15803d; }
     .toast-info    .toast-title { color: var(--accent); }
     .toast-body {
       font-size: 0.75rem;
@@ -642,11 +642,11 @@
 
     function waitColor(level) {
       const colors = {
-        critical: "#ef4444",
-        emergent: "#f97316",
-        urgent: "#eab308",
-        less_urgent: "#22c55e",
-        non_urgent: "#3b82f6",
+        critical: "#dc2626",
+        emergent: "#ea580c",
+        urgent: "#a16207",
+        less_urgent: "#15803d",
+        non_urgent: "#2563eb",
       };
       return colors[level] || "var(--text)";
     }
@@ -902,7 +902,7 @@
         if (bed.needsCleaning) {
           cls += " room-cleaning";
           statusText = "cleaning";
-          bodyHtml = `<div class="room-meta" style="color:#fcd34d">Needs cleaning</div>`;
+          bodyHtml = `<div class="room-meta" style="color:#b45309">Needs cleaning</div>`;
         } else if (bed.status === "occupied" && bed.occupiedByPatient) {
           const esi = ESI_NUM[bed.occupiedByPatient.triageLevel] || "?";
           cls += ` room-occupied esi-${esi}`;
@@ -913,7 +913,7 @@
             <div class="room-meta">ESI ${esi} · ${escHtml(titleCase(bed.occupiedByPatient.triageLevel || ""))}</div>`;
         } else {
           cls += " room-available";
-          bodyHtml = `<div class="room-meta" style="color:#4ade80">Ready</div>`;
+          bodyHtml = `<div class="room-meta" style="color:#15803d">Ready</div>`;
         }
 
         return `

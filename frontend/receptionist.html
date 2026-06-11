@@ -8,18 +8,18 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2e3044;
-      --text: #e8eaf0;
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --border: #dde2ee;
+      --text: #111827;
       --muted: #6b7280;
-      --accent: #4f8ef7;
-      --esi-1: #ef4444;
-      --esi-2: #f97316;
-      --esi-3: #eab308;
-      --esi-4: #22c55e;
-      --esi-5: #3b82f6;
-      --red: #ef4444;
+      --accent: #2d6be4;
+      --esi-1: #dc2626;
+      --esi-2: #ea580c;
+      --esi-3: #ca8a04;
+      --esi-4: #16a34a;
+      --esi-5: #2563eb;
+      --red: #dc2626;
       --radius: 10px;
     }
 
@@ -148,7 +148,7 @@
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 12px;
-      background: rgba(255,255,255,0.01);
+      background: rgba(0,0,0,0.02);
     }
     .choice small {
       display: block;
@@ -227,7 +227,7 @@
       font-size: 0.85rem;
     }
     .step.active .step-icon::before { content: ""; display: block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    .step.done .step-icon { color: #4ade80; font-size: 1rem; }
+    .step.done .step-icon { color: #16a34a; font-size: 1rem; }
     .step.done .step-icon::after { content: "✓"; }
     .step.pending .step-icon { color: var(--muted); font-size: 1rem; }
     .step.pending .step-icon::after { content: "○"; }
@@ -254,8 +254,8 @@
     }
     .log-tag { font-weight: 600; flex-shrink: 0; font-family: monospace; }
     .log-entry.agent .log-tag  { color: var(--accent); }
-    .log-entry.action .log-tag { color: #a78bfa; }
-    .log-entry.text .log-tag   { color: #4ade80; }
+    .log-entry.action .log-tag { color: #7c3aed; }
+    .log-entry.text .log-tag   { color: #16a34a; }
     .log-text { color: var(--muted); }
 
     #agent-trace {
@@ -282,10 +282,10 @@
       max-width: 760px;
       margin: 0 auto 20px;
       padding: 14px 18px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.35);
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.25);
       border-radius: var(--radius);
-      color: #fca5a5;
+      color: #dc2626;
       font-size: 0.88rem;
     }
     .error-banner.visible { display: block; }
@@ -811,6 +811,20 @@
       }
     }
 
+    function prefillDemo() {
+      document.getElementById("name").value = "Daniel Kim";
+      document.getElementById("age").value = "58";
+      document.getElementById("complaint").value = "Sudden severe headache — worst headache of my life. Came on like a thunderclap about 20 minutes ago. My wife says I was briefly confused right before it started.";
+      document.getElementById("started").value = "within the last hour";
+      document.getElementById("pain").value = "9 to 10 out of 10";
+      document.getElementById("breathing").value = "no trouble breathing";
+      document.getElementById("chest-pain").value = "no chest pain or pressure";
+      document.getElementById("bleeding").value = "no heavy bleeding";
+      document.getElementById("confusion").value = "yes, fainting or confusion";
+      document.getElementById("notes").value = "Wife reports brief confusion episode right before onset";
+    }
+    prefillDemo();
+
     function resetForm() {
       document.querySelectorAll("input, textarea, select").forEach((el) => {
         el.value = "";
@@ -822,6 +836,7 @@
       document.getElementById("error-banner").classList.remove("visible");
       resetSteps();
       clearLog();
+      prefillDemo();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   </script>
